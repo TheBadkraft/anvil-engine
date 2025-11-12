@@ -8,13 +8,13 @@ import aurora.engine.validators.Validators;
 
 
 public class FileTest {
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) {
         String filePath = args.length > 0 ? args[0] : null;
 
         // Validate file path
         ValidationResult validationResult =
                 Validators.validateFilePath(filePath);
-        Path path = null;
+        Path path;
 
         switch (validationResult.getCode()) {
             case 0:
@@ -36,7 +36,16 @@ public class FileTest {
         ParseResult<?> result = AuroraParser.parse(path); // lexer-less
         var document = (AuroraDocument)result.result();
         if (document == null) {
-            System.out.println("No document parsed.");
+            // print errors if any
+            if (!result.errors().isEmpty()) {
+                System.out.printf("FAILED — %d error(s)%n", result.errors().size());
+                result.errors().forEach(e -> System.err.printf(" [%d:%d] %s%n", e.line(),
+                    e.col(), e.message()));
+            }
+            else {
+                System.out.println("Document failed to parse.");
+            }
+
             return;
         }
         if (document.isEmpty()) {
@@ -50,6 +59,21 @@ public class FileTest {
             }
             else {
                 System.out.println("Document dialect: " + document.getDialect());
+            }
+            var identifiers = document.identifiers();
+            if (!identifiers.isEmpty()){
+                // pretty print identifiers
+                System.out.println("Identifiers found:");
+                for (String id : identifiers) {
+                    System.out.println(" - " + id);
+                }
+            }
+            if (document.hasStatements()){
+                // pretty print statements
+                System.out.println("Statements found:");
+                for (Statement stmt : document.statements()) {
+                    System.out.println(" - " + stmt);
+                }
             }
         } else {
             System.out.println("Document did not complete parsing.");

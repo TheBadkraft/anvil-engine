@@ -1,9 +1,14 @@
 package aurora.engine.parser;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class AuroraDocument {
     // can be set internally by the parser
     boolean isParsed = false;
     Dialect dialect = null;
+    private final List<Statement> statements = new ArrayList<>();
+    private final List<String> identifiers = new ArrayList<>();
 
     public AuroraDocument() {
 
@@ -13,7 +18,7 @@ public class AuroraDocument {
         Returns true if the document contains no content.
      */
     public boolean isEmpty() {
-        return hasNoDialect();
+        return hasNoDialect() && statements.isEmpty();
     }
     /*
         Returns true if the document was fully parsed.
@@ -32,5 +37,36 @@ public class AuroraDocument {
      */
     public Dialect getDialect() {
         return dialect;
+    }
+    /*
+        Returns an unmodifiable list of top-level statements in the document.
+     */
+    public List<Statement> statements() {
+        return List.copyOf(statements);
+    }
+    /*
+        Returns an unmodifiable list of identifiers defined in the document.
+     */
+    public List<String> identifiers() {
+        return List.copyOf(identifiers);
+    }
+    /*
+        Returns true if the document has any statements.
+     */
+    public boolean hasStatements() {
+        return !statements.isEmpty();
+    }
+
+    /*
+        Internal method to add a statement to the document.
+     */
+    void addStatement(Statement stmt) {
+        statements.add(stmt);
+    }
+    /*
+        Internal method to add an identifier to the document.
+     */
+    void addIdentifier(String id) {
+        identifiers.add(id);
     }
 }

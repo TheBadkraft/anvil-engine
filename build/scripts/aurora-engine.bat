@@ -70,7 +70,7 @@ goto fail
 :execute
 @rem Setup the command line
 
-set CLASSPATH=%APP_HOME%\lib\aurora-engine.jar
+set CLASSPATH=%APP_HOME%\lib\aurora-engine.jar;%APP_HOME%\lib\annotations-24.1.0.jar
 
 
 @rem Execute aurora-engine
