@@ -8,7 +8,7 @@ public class AuroraDocument {
     boolean isParsed = false;
     Dialect dialect = null;
     private final List<Statement> statements = new ArrayList<>();
-    private final List<String> identifiers = new ArrayList<>();
+    private final List<String> fields = new ArrayList<>();
 
     public AuroraDocument() {
 
@@ -45,10 +45,10 @@ public class AuroraDocument {
         return List.copyOf(statements);
     }
     /*
-        Returns an unmodifiable list of identifiers defined in the document.
+        Returns an unmodifiable list of fields defined in the document.
      */
-    public List<String> identifiers() {
-        return List.copyOf(identifiers);
+    public List<String> fields() {
+        return List.copyOf(fields);
     }
     /*
         Returns true if the document has any statements.
@@ -66,7 +66,7 @@ public class AuroraDocument {
     /*
         Internal method to add an identifier to the document.
      */
-    void addIdentifier(String id) {
-        identifiers.add(id);
+    void addIdentifier(String field) {
+        fields.add(field);
     }
 }

@@ -11,8 +11,11 @@ public record ValueParseResult<T>(
         return new ValueParseResult<>(value, List.of());
     }
 
-    public static <T> ValueParseResult<T> failure(String message, int line, int col) {
+    public static <T> ValueParseResult<T> failure(ErrorCode message, int line, int col) {
         return new ValueParseResult<>(null, List.of(new ParseError(line, col, message)));
+    }
+    public static <T> ValueParseResult<T> failure(List<ParseError> errors) {
+        return new ValueParseResult<>(null, errors);
     }
 
     public boolean isSuccess() { return errors.isEmpty(); }

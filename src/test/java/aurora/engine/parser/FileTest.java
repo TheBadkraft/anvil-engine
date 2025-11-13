@@ -60,12 +60,12 @@ public class FileTest {
             else {
                 System.out.println("Document dialect: " + document.getDialect());
             }
-            var identifiers = document.identifiers();
-            if (!identifiers.isEmpty()){
-                // pretty print identifiers
-                System.out.println("Identifiers found:");
-                for (String id : identifiers) {
-                    System.out.println(" - " + id);
+            var fields = document.fields();
+            if (!fields.isEmpty()){
+                // pretty print fields
+                System.out.println("Fields found:");
+                for (String fld : fields) {
+                    System.out.println(" - " + fld);
                 }
             }
             if (document.hasStatements()){

@@ -8,7 +8,11 @@ public enum Operator {
     L_BRACE("{", 1),
     R_BRACE("}", 1),
     L_BRACKET("[", 1),
-    R_BRACKET("]", 1);
+    R_BRACKET("]", 1),
+    NEWLINE("\n", 1 ),
+    QUOTE("\"", 1),
+    S_QUOTE("'", 1),
+    BACKTICK("`", 1);
 
     private final String symbol;
     private final int length;

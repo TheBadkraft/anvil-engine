@@ -3,6 +3,7 @@ package aurora.engine.parser;
 
 import aurora.engine.utilities.Utils;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.nio.file.*;
 import java.io.IOException;
@@ -39,7 +40,7 @@ public class AuroraParser {
                     : ParseResult.failure(parser.errors);
         } catch (IOException e) {
             return ParseResult.failure(List.of(
-                    new ParseError(0, 0, "IO error: " + e.getMessage())));
+                    new ParseError(0, 0, ErrorCode.IO_ERROR)));
         }
     }
 
@@ -78,7 +79,7 @@ public class AuroraParser {
                 continue;
             }
             // parse identifier ... every top-level statement starts with an identifier
-            int len = 0;
+            int len;
             if ((len = expectIdentifier()) > 0) {
                 String id = consume(len);
                 // for now, we just create a placeholder statement
@@ -105,6 +106,17 @@ public class AuroraParser {
         return doc;
     }
 
+    private Dialect detectDialect(Dialect hint) {
+        skipLeadingLayout();
+
+        if (expectShebang()) {
+            String token = consume(5); // "#!asl" or "#!aml"
+            return Dialect.fromShebang(token);
+        }
+
+        return hint;
+    }
+
     private Statement parseStatement(String id) {
         // 1. try assignment operator
         if(expectOperator(Operator.ASSIGN)) {
@@ -125,12 +137,15 @@ public class AuroraParser {
         }
 
         // no assignment operator
-        error("Expected assignment operator ':=' after identifier '" + id + "'");
+        error(ErrorCode.EXPECTED_ASSIGN);
         return null;
     }
 
-    private @NotNull
-    ValueParseResult<Value> parseValue() {
+    private @NotNull ValueParseResult<Value> parseValue() {
+        if (expectOperator(Operator.L_BRACE)) {
+            consumeOperator(Operator.L_BRACE);
+            return parseAnonymousObject();
+        }
         if (expect("null")) {
             consume(4);
             return ValueParseResult.success(new Value.NullValue());
@@ -143,8 +158,92 @@ public class AuroraParser {
             consume(5);
             return ValueParseResult.success((new Value.BooleanValue(false)));
         }
-        error("Expected value");
-        return ValueParseResult.failure("Expected value", line, col);
+        if (expectNumber()) {
+            int num = matchNumber();
+            return ValueParseResult.success(new Value.NumberValue(num));
+        }
+        if (expectOperator(Operator.QUOTE)) {
+            consumeOperator(Operator.QUOTE);
+            String value = matchString();
+            if (expectOperator(Operator.QUOTE)) {
+                consumeOperator(Operator.QUOTE);
+                return ValueParseResult.success(new Value.StringValue(value));
+            } else {
+                return ValueParseResult.failure(ErrorCode.UNTERMINATED_STRING, line, col);
+            }
+        }
+
+        return ValueParseResult.failure(ErrorCode.EXPECTED_VALUE, line, col);
+    }
+
+    private @NotNull ValueParseResult<Value> parseAnonymousObject() {
+        Map<String, Value> fields = new HashMap<>();
+        List<ParseError> errors = new ArrayList<>();
+        int startLine = line, startCol = col;
+        boolean loop = !expectOperator(Operator.R_BRACE);
+        while (!isEOF() && loop) {
+            skipWhitespace();
+
+            // 1. Key (identifier)
+            String field = matchIdentifier();
+            if (field == null) {
+                errors.add(new ParseError(line, col, ErrorCode.EXPECTED_OBJECT_FIELD));
+                recoverToObjectEnd();
+                break;
+            }
+            // 2. Assignment operator
+            skipWhitespace();
+            if (!expectOperator(Operator.ASSIGN)) {
+                errors.add(new ParseError(line, col, ErrorCode.EXPECTED_ASSIGN));
+                recoverToObjectEnd();
+                break;
+            } else {
+                consumeOperator(Operator.ASSIGN);
+            }
+            // 3. Value
+            skipWhitespace();
+            var valueResult = parseValue();
+            if (!valueResult.isSuccess()) {
+                errors.addAll(valueResult.errors());
+                recoverToObjectEnd();
+                break;
+            }
+
+            // 4. Check for duplicate field
+            if (fields.containsKey(field)) {
+                errors.add(new ParseError(line, col, ErrorCode.DUPLICATE_FIELD_IN_OBJECT));
+            } else {
+                fields.put(field, valueResult.value());
+            }
+
+            // 5. Separator (, or \n) or end block
+            if (expectOperator(Operator.COMMA)) {
+                consumeOperator(Operator.COMMA);
+            }
+            if (expectOperator(Operator.NEWLINE)){
+                consumeOperator(Operator.NEWLINE);
+            }
+
+            skipWhitespace();
+            loop = !expectOperator(Operator.R_BRACE);
+        }
+
+        if (expectOperator(Operator.R_BRACE)) {
+            consumeOperator(Operator.R_BRACE);
+            if (errors.isEmpty()) {
+                return ValueParseResult.success(new Value.ObjectValue(fields));
+            } else {
+                errors.add(new ParseError(startLine, startCol, ErrorCode.ERRORS_IN_OBJECT));
+            }
+        } else {
+            errors.add(new ParseError(startLine, startCol, ErrorCode.EXPECTED_OBJECT_CLOSE));
+            recoverToObjectEnd();
+            return ValueParseResult.failure(errors);
+        }
+
+        return errors.isEmpty()
+                ? ValueParseResult.success(new Value.ObjectValue(Map.copyOf(fields)))
+                : ValueParseResult.failure(errors);
     }
 
     // --- helpers ---
@@ -158,10 +257,38 @@ public class AuroraParser {
         return Character.isLetterOrDigit(c) || c == '_';
     }
 
+
+    private char consume() {
+        if (isEOF()) return '\0';
+        char c = source.charAt(pos++);
+        if (c == '\n') {
+            line++;
+            col = 1;
+        } else {
+            col++;
+        }
+        return c;
+    }
+    // consume n characters and return the string
+    private @NotNull String consume(int n) {
+        if (n == 0) return "";
+
+        char[] builder = new char[n];
+        for (int i = 0; i < n; i++) {
+            builder[i] = consume();
+        }
+        return new String(builder);
+    }
+    private int consumeOperator(Operator op) {
+        String sym = op.symbol();
+        int len = sym.length();
+        consume(len);
+        return len;
+    }
+
     private char peek() {
         return peek(0);
     }
-
     private char peek(int offset) {
         int ndx = pos + offset;
         return isEOF() ? '\0' : source.charAt(ndx);
@@ -180,29 +307,53 @@ public class AuroraParser {
             expect("/*")
             ... etc.
      */
-
-    // consume n characters and return the string
-    private @NotNull
-    String consume(int n) {
-        if (n == 0) return "";
-
-        char[] builder = new char[n];
-        for (int i = 0; i < n; i++) {
-            builder[i] = consume();
-        }
-        return new String(builder);
+    private @Nullable String matchIdentifier() {
+        int len = expectIdentifier();
+        if (len == 0) return null;
+        return consume(len);
     }
-
-    private char consume() {
-        if (isEOF()) return '\0';
-        char c = source.charAt(pos++);
-        if (c == '\n') {
-            line++;
-            col = 1;
-        } else {
-            col++;
+    private @NotNull String matchString() {
+        StringBuilder strBuilder = new StringBuilder();
+        while (!isEOF() && !expectOperator(Operator.QUOTE)) {
+            char c = consume();
+            if (c == '\\') {
+                // escape sequence
+                char next = peek();
+                switch (next) {
+                    case 'n' -> {
+                        consume();
+                        strBuilder.append('\n');
+                    }
+                    case 't' -> {
+                        consume();
+                        strBuilder.append('\t');
+                    }
+                    case 'r' -> {
+                        consume();
+                        strBuilder.append('\r');
+                    }
+                    case '\\' -> {
+                        consume();
+                        strBuilder.append('\\');
+                    }
+                    case '"' -> {
+                        consume();
+                        strBuilder.append('"');
+                    }
+                    default -> strBuilder.append(c);
+                }
+            } else {
+                strBuilder.append(c);
+            }
         }
-        return c;
+        return strBuilder.toString();
+    }
+    private int matchNumber() {
+        StringBuilder numBuilder = new StringBuilder();
+        while (!isEOF() && Character.isDigit(peek())) {
+            numBuilder.append(consume());
+        }
+        return Integer.parseInt(numBuilder.toString());
     }
 
     private boolean expectShebang() {
@@ -228,10 +379,6 @@ public class AuroraParser {
         return length;
     }
 
-    private boolean expectOperator(Operator op) {
-        return expect(op.symbol());
-    }
-
     private boolean expect(String s) {
         // match string s at current position - should never advance so
         // we never save position -- just report the facts
@@ -247,25 +394,11 @@ public class AuroraParser {
         }
         return isMatch;
     }
-
-    private Dialect detectDialect(Dialect hint) {
-        skipLeadingLayout();
-
-        if (expectShebang()) {
-            String token = consume(5); // "#!asl" or "#!aml"
-            return Dialect.fromShebang(token);
-        }
-
-        return hint;
+    private boolean expectOperator(Operator op) {
+        return expect(op.symbol());
     }
-
-    private boolean nextLine() {
-        while (!isEOF() && peek() != '\n')
-            consume();
-        if (!isEOF())
-            consume();
-
-        return !isEOF();
+    private boolean expectNumber() {
+        return !isEOF() && Character.isDigit(peek());
     }
 
     private void skipLeadingLayout() {
@@ -321,11 +454,11 @@ public class AuroraParser {
         boolean ifErr = false;
         if (peek() == '#' && expectShebang()){
             if (hasShebang) {
-                error("Multiple shebangs are not allowed.");
+                error(ErrorCode.MULTIPLE_SHEBANG);
                 ifErr = true;
             }
             if(doc.hasStatements()) {
-                error("Shebang can only appear at the beginning of the file.");
+                error(ErrorCode.SHEBANG_AFTER_STATEMENTS);
                 ifErr = true;
             }
         }
@@ -333,13 +466,22 @@ public class AuroraParser {
         return ifErr;
     }
 
-    private void error(String msg) {
-        errors.add(new ParseError(line, col, msg));
+    private void error(ErrorCode code) {
+        errors.add(new ParseError(line, col, code));
         recover();
     }
 
     private void recover() {
         while (!isEOF() && peek() != '\n' && peek() != ';')
             consume();
+    }
+
+    private void recoverToObjectEnd() {
+        int depth = 1;
+        while (!isEOF() && depth > 0) {
+            if (peek(0) == '{') depth++;
+            if (peek(0) == '}') depth--;
+            consume();
+        }
     }
 }
