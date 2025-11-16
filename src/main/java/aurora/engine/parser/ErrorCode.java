@@ -17,15 +17,17 @@ public enum ErrorCode {
     EXPECTED_VALUE(2003, "Expected value"),
     MULTIPLE_SHEBANG(2004, "Multiple shebangs not allowed"),
     SHEBANG_AFTER_STATEMENTS(2005, "Shebang must be first non-whitespace line"),
+    INVALID_VALUE_IN_ATTRIBUTE(2006, "Attribute value cannot be an object or array"),
 
     // PARSER - OBJECT (300x)
     EXPECTED_OBJECT_FIELD(3001, "Expected object key"),
     EXPECTED_OBJECT_VALUE(3002, "Expected object value after ':='"),
     EXPECTED_OBJECT_CLOSE(3003, "Expected '}' to close object"),
     TRAILING_COMMA_IN_OBJECT(3004, "Trailing comma in object"),
-    ERRORS_IN_OBJECT(3099, "Errors found in object fields"),
     TRAILING_COMMA_IN_ARRAY(3006, "Trailing comma in array"),
     EXPECTED_ARRAY_CLOSE(3007, "Expected ']' to close array"),
+    ERRORS_IN_OBJECT(3099, "Errors found in object fields"),
+    UNEXPECTED_TOKEN(3100, "Unexpected token"),
 
     // SEMANTIC (400x)
     DUPLICATE_FIELD_IN_OBJECT(4001, "Duplicate identifier in document or object"),

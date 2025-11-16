@@ -95,21 +95,46 @@ public class AuroraParser {
                 }
                 // for now, we just create a placeholder statement
                 module.addIdentifier(id);
-                // after statement, expect line ending (, or EOL or EOF)
+
+                // ----- optional attributes -----
                 skipWhitespace();
-                Statement stmt;
-                if((stmt = parseStatement(id)) != null) {
-                    module.addStatement(stmt);
-                } else {
-                    // error reported inside parseStatement
-                    recover();
+                var attrs = List.<Attribute>of();
+                if (consumeOperator(Operator.AT)) {
+                    var attrRes = parseAttributeBlock();
+                    attrs = attrRes.isSuccess() ? attrRes.value() : List.of();
+                    if (!attrRes.isSuccess()) {
+                        errors.addAll(attrRes.errors());
+                        recover();
+                        continue;
+                    }
                 }
+
+                // ----- := value -----
+                skipWhitespace();
+                if (!isOperator(Operator.ASSIGN)) {
+                    error(ErrorCode.EXPECTED_ASSIGN, line, col);
+                    recover();
+                    continue;
+                }
+                consume(Operator.ASSIGN.symbol().length());   // consume ":="
+
+                skipWhitespace();
+                var valueRes = parseValue();
+                if (!valueRes.isSuccess()) {
+                    errors.addAll(valueRes.errors());
+                    recover();
+                    continue;
+                }
+
+                // Build the final statement with attributes
+                Statement stmt = new Assignment(id, valueRes.value(), attrs);
+                module.addStatement(stmt);
 
                 continue;
             }
 
             // if we reach here, it's an unexpected token
-            // NOT YET: error("Unexpected token: '" + peek() + "'");
+            error(ErrorCode.UNEXPECTED_TOKEN, line, col);
             recover();
         }
 
@@ -128,28 +153,63 @@ public class AuroraParser {
         return hint;
     }
 
-    private Statement parseStatement(String id) {
-        // 1. try assignment operator
-        if(isOperator(Operator.ASSIGN)) {
-            if(!consume(Operator.ASSIGN.symbol().length()).isEmpty()) {
+//    private Statement parseStatement(String id) {
+//        // 1. try assignment operator
+//        if(isOperator(Operator.ASSIGN)) {
+//            if(!consume(Operator.ASSIGN.symbol().length()).isEmpty()) {
+//                skipWhitespace();
+//                // we have an assignment operator so we parse value ...
+//                var value = parseValue();
+//
+//                if (value.isSuccess()) {
+//                    return new Assignment(id, value.value());
+//                } else {
+//                    // error reported inside value result
+//                    errors.addAll(value.errors());
+//                    recover();
+//                    return null;
+//                }
+//            }
+//        }
+//
+//        // no assignment operator
+//        error(ErrorCode.EXPECTED_ASSIGN, line, col);
+//        return null;
+//    }
+    
+    private ValueParseResult<List<Attribute>> parseAttributeBlock() {
+        if (!isOperator(Operator.L_BRACKET)) return success(List.of());
+        int startLine = line, startCol = col;
+        consume(); // eat '['
+
+        List<Attribute> attrs = new ArrayList<>();
+        while (true) {
+            skipWhitespace();
+            if (isOperator(Operator.R_BRACKET)) { consume(); break; }
+
+            // tag or key=value
+            int idLen = isIdentifier();
+            if (idLen == 0) return failure(ErrorCode.EXPECTED_IDENTIFIER, line, col);
+            String key = consume(idLen);
+
+            Value val = null;
+            skipWhitespace();
+            if (consumeOperator(Operator.EQUAL)) {
                 skipWhitespace();
-                // we have an assignment operator so we parse value ...
-                var value = parseValue();
-
-                if (value.isSuccess()) {
-                    return new Assignment(id, value.value());
-                } else {
-                    // error reported inside value result
-                    errors.addAll(value.errors());
-                    recover();
-                    return null;
-                }
+                var literal = parseLiteral();                 // literal only – no nesting
+                if (!literal.isSuccess()) return literal.cast();
+                val = literal.value();
             }
-        }
+            attrs.add(new Attribute(key, val));
 
-        // no assignment operator
-        error(ErrorCode.EXPECTED_ASSIGN, line, col);
-        return null;
+            skipWhitespace();
+            if (!isOperator(Operator.COMMA)) break;
+            consume(); // comma
+        }
+        if (!consumeOperator(Operator.R_BRACKET)) {
+            return failure(ErrorCode.EXPECTED_ARRAY_CLOSE, startLine, startCol);
+        }
+        return success(attrs);
     }
 
     private @NotNull ValueParseResult<Value> parseValue() {
@@ -177,6 +237,16 @@ public class AuroraParser {
             consume(5);
             return success((new Value.BooleanValue(false)));
         }
+        // ---- anonymous identifier (e.g. block, vanilla) ----
+        int idLen = isIdentifier();
+        if (idLen > 0) {
+            String id = consume(idLen);
+            if (!isKeyword(id)) {
+                return ValueParseResult.success(new Value.AnonymousValue(id));
+            }
+            // fall through to keyword handling (true/false/null)
+        }
+        // string & numeric types
         if (isOperator(Operator.QUOTE)) {
             consumeOperator(Operator.QUOTE);
             String value = matchString();
@@ -198,6 +268,18 @@ public class AuroraParser {
         return failure(ErrorCode.EXPECTED_VALUE, line, col);
     }
 
+    private ValueParseResult<Value> parseLiteral() {
+        var vp = parseValue();
+        if (!vp.isSuccess()) return vp;
+        
+        Value v = vp.value();
+        if (v instanceof Value.ObjectValue || v instanceof Value.ArrayValue) {
+            return ValueParseResult.failure(ErrorCode.INVALID_VALUE_IN_ATTRIBUTE, line, col);
+        }
+        
+        return vp;
+    }
+    
     private NumericParseResult parseNumber() {
         int start = pos;
         int startLine = line, startCol = col;
@@ -449,11 +531,13 @@ public class AuroraParser {
         }
         return new String(builder);
     }
-    private int consumeOperator(Operator op) {
-        String sym = op.symbol();
-        int len = sym.length();
-        consume(len);
-        return len;
+    private boolean consumeOperator(Operator op) {
+        if (isOperator(op)) {
+            consume(op.length());
+            return true;
+        }
+
+        return false;
     }
 
     private char peek() {

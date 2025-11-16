@@ -1,0 +1,7 @@
+#!aml
+
+super_block @[type=block, debug=true] := {hardness := 50.0}
+// other attribute values to test
+nbt_data @[type=data, tag="aurora.block", light=4.5] := {
+    display_name := "Custom Block"
+}

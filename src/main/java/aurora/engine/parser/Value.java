@@ -9,7 +9,8 @@ import java.util.stream.Collectors;
 
 public sealed interface Value
         permits Value.NullValue, Value.BooleanValue, Value.NumberValue, Value.StringValue,
-        Value.RangeValue, Value.ArrayValue, Value.ObjectValue, Value.FreeformValue {
+        Value.RangeValue, Value.ArrayValue, Value.ObjectValue, Value.FreeformValue,
+        Value.AnonymousValue {
 
     @Override
     String toString();
@@ -76,8 +77,18 @@ public sealed interface Value
     record FreeformValue(String content, String attrib) implements Value {
         public FreeformValue(String content) { this(content, null); }
 
-        @Override public @NotNull String toString() {
+        @Override
+        public @NotNull String toString() {
             return (attrib != null ? "@" + attrib : "") + content;
+        }
+    }
+
+    /** Anonymous value for non-literal expressions - e.g., an identifier.
+     */
+    record AnonymousValue(String id) implements Value {
+        @Override
+        public @NotNull String toString() {
+            return id;
         }
     }
 }

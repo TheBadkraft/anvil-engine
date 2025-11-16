@@ -19,4 +19,10 @@ public record ValueParseResult<T>(
     }
 
     public boolean isSuccess() { return errors.isEmpty(); }
+
+    public <U> ValueParseResult<U> cast() {
+        @SuppressWarnings("unchecked")
+        var casted = (ValueParseResult<U>) this;
+        return casted;
+    }
 }

@@ -1,7 +1,10 @@
 package aurora.engine.parser;
 
 public enum Operator {
-    ASSIGN(":=", 2), // token, length
+    ASSIGN(":=", 2),
+    EQUAL("=", 1),
+    AT("@", 1),
+    BACKTICK("`", 1), // token, length
     COLON(":", 1),
     COMMA(",", 1),
     DOT_DOT("..", 2),
@@ -11,8 +14,7 @@ public enum Operator {
     R_BRACKET("]", 1),
     NEWLINE("\n", 1 ),
     QUOTE("\"", 1),
-    S_QUOTE("'", 1),
-    BACKTICK("`", 1);
+    S_QUOTE("'", 1),;
 
     private final String symbol;
     private final int length;
@@ -25,6 +27,7 @@ public enum Operator {
     public String symbol() {
         return symbol;
     }
+    public int length() { return length; }
 
     public static Operator fromToken(String token) {
         for (Operator op : Operator.values()) {
