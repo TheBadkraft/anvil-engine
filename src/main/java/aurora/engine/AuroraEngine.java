@@ -3,8 +3,6 @@ package aurora.engine;
 
 import aurora.engine.parser.AuroraParser;
 import aurora.engine.parser.Module;
-import aurora.engine.parser.aml.NamedModel;
-import aurora.engine.parser.aml.Model;
 import aurora.engine.parser.ParseResult;
 
 import java.nio.file.*;
@@ -24,7 +22,7 @@ public final class AuroraEngine {
         loadAmlFiles(registry, DATA_ROOT);
 
         System.out.println("\n=== Registry Summary ===");
-        registry.printSummary();
+//        registry.printSummary();
     }
 
     private static void loadAmlFiles(Registry registry, Path dir) {
@@ -48,19 +46,19 @@ public final class AuroraEngine {
 }
 
 class Registry {
-    private final Map<String, NamedModel> models = new HashMap<>();
-
-    void register(NamedModel model) {
-        models.put(model.fullId(), model);
-    }
-
-    void printSummary() {
-        if (models.isEmpty()) {
-            System.out.println("No models registered.");
-            return;
-        }
-        models.forEach((id, model) -> System.out.printf("• %s [%s] — %d fields, %d children%n",
-                id, model.attributes().getOrDefault("type", new Model.Attribute("type", "unknown")).value(),
-                model.fields().size(), model.children().size()));
-    }
+//    private final Map<String, NamedModel> models = new HashMap<>();
+//
+//    void register(NamedModel model) {
+//        models.put(model.fullId(), model);
+//    }
+//
+//    void printSummary() {
+//        if (models.isEmpty()) {
+//            System.out.println("No models registered.");
+//            return;
+//        }
+//        models.forEach((id, model) -> System.out.printf("• %s [%s] — %d fields, %d children%n",
+//                id, model.attributes().getOrDefault("type", new Model.Attribute("type", "unknown")).value(),
+//                model.fields().size(), model.children().size()));
+//    }
 }
