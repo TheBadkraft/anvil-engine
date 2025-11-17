@@ -1,7 +1,9 @@
 package aurora.engine.parser;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class Module {
     // can be set internally by the parser
@@ -57,6 +59,19 @@ public class Module {
         return !statements.isEmpty();
     }
 
+    /**
+        Validates the document structure.
+        Ensures all top-level fields are unique and all assignment values are valid.
+     */
+    public boolean isValid() {
+        Set<String> topLevel = new HashSet<>();
+        for (String field : fields) {
+            if (!topLevel.add(field)) return false;
+        }
+        return statements.stream()
+                .allMatch(stmt -> stmt instanceof Assignment a && isValidValue(a.value()));
+    }
+
     /*
         Internal method to add a statement to the document.
      */
@@ -68,5 +83,25 @@ public class Module {
      */
     void addIdentifier(String field) {
         fields.add(field);
+    }
+
+    private boolean isValidValue(Value v) {
+        if (v instanceof Value.ObjectValue ov) {
+            Set<String> keys = new HashSet<>();
+            for (var entry : ov.fields()) {
+                String key = entry.getKey();
+                if (!keys.add(key)) {
+                    return false; // duplicate key
+                }
+                if (!isValidValue(entry.getValue())) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        if (v instanceof Value.ArrayValue av) {
+            return av.elements().stream().allMatch(this::isValidValue);
+        }
+        return true;
     }
 }

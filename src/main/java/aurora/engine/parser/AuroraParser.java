@@ -14,10 +14,13 @@ import static aurora.engine.parser.ValueParseResult.success;
 public class AuroraParser {
     public static final Set<String> KEYWORDS = Set.of(
             "true", "false", "null", "vars", "include"
-            // "return", "if", "else", "for", "while" // reserved for future use
     );
+
     private final String source;
     private final List<ParseError> errors = new ArrayList<>();
+    private int errCount = 0;                     // total errors (even if capped)
+    private static final int MAX_ERRORS = 25;    // stop logging after this many
+    private boolean inAttributeContext = false;   // true inside @[ … ]
     private boolean hasShebang = false;
     private int pos = 0;
     private int line = 1;
@@ -27,19 +30,17 @@ public class AuroraParser {
         this.source = source;
     }
 
+    /* --------------------------------------------------------------
+       PUBLIC ENTRY POINT
+       -------------------------------------------------------------- */
     public static ParseResult<Module> parse(Path path) {
         try {
             String content = Files.readString(path);
             Dialect dialect = Dialect.fromFileExtension(
                     Utils.getFileExtension(path));
             AuroraParser parser = new AuroraParser(content);
-            /*
-                here's the problem - before we can start getting models, we need to validate the module:
-                - shebang (optional) but must be first non-ws line if present
-                - if no shebang, we can still proceed, but file extension (.aml or .asl)
-                  can be a hint, otherwise we assume #!asl as least restrictive
-                - then we start parsing top-level statement (e.g., assignments, model definitions, etc.)
-             */
+            parser.errors.clear();
+            parser.errCount = 0;
             var module = parser.parseSource(dialect);
             return parser.errors.isEmpty()
                     ? ParseResult.success(module)
@@ -50,50 +51,52 @@ public class AuroraParser {
         }
     }
 
-    /*
-        Rule 1: Advance Only on Success + Minimal Responsibility
-        1. **Specialized functions advance only what they match**
-        2. **On success: advance matched text only**
-        3. **On failure: restore position**
-        4. **Never skip whitespace, comments, or line endings**
-        5. **Caller handles layout and terminators**
+    /* --------------------------------------------------------------
+       BARE-IDENTIFIER HELPERS
+       -------------------------------------------------------------- */
+    private boolean isValidBareIdentifier(String id) {
+        return id.matches("^[a-zA-Z_][a-zA-Z0-9._]*$");
+    }
 
-        Why:
-        - **Zero hidden navigation**
-        - **Full control at caller level**
-        - **Extensible parsing strategies**
-     */
+    /* --------------------------------------------------------------
+       ERROR REPORTING
+       -------------------------------------------------------------- */
+    private void error(ErrorCode code, int line, int col) {
+        errCount++;
+        if (errors.size() < MAX_ERRORS) {
+            errors.add(new ParseError(line, col, code));
+        }
+        recover();
+    }
+
+    public int getErrorCount() { return errCount; }
+
+    /* --------------------------------------------------------------
+       MAIN PARSING
+       -------------------------------------------------------------- */
     private Module parseSource(Dialect hint) {
-        /*
-             Let 'parseDocument' handle line states, navigation, error reporting, etc.
-             Specialized functions should not modify the parser state directly; they should
-             only return results that 'parseDocument' can use to update the state accordingly.
-         */
         var module = new Module();
-        // 1. skip any leading whitespace/comments
-        skipWhitespace();
-        // 2. shebang; optional, first non-ws line
+
+        skipWhitespace();                     // leading layout
         module.dialect = detectDialect(hint);
 
-        // 3. Parse top-level statements
         while (!isEOF()) {
             skipWhitespace();
-            // check for shebang again (error if found)
-            if(errShebang(module)) {
-                // error reported inside errShebang
+
+            if (errShebang(module)) {         // shebang after statements?
                 recover();
                 continue;
             }
-            // parse identifier ... every top-level statement starts with an identifier
-            int len;
-            if ((len = isIdentifier()) > 0) {
+
+            // every top-level statement starts with an identifier
+            int len = isIdentifier();
+            if (len > 0) {
                 String id = consume(len);
                 if (isKeyword(id)) {
                     error(ErrorCode.IDENTIFIER_IS_KEYWORD, line, col);
                     recover();
                     continue;
                 }
-                // for now, we just create a placeholder statement
                 module.addIdentifier(id);
 
                 // ----- optional attributes -----
@@ -116,7 +119,7 @@ public class AuroraParser {
                     recover();
                     continue;
                 }
-                consume(Operator.ASSIGN.symbol().length());   // consume ":="
+                consume(Operator.ASSIGN.symbol().length());   // ":="
 
                 skipWhitespace();
                 var valueRes = parseValue();
@@ -126,14 +129,20 @@ public class AuroraParser {
                     continue;
                 }
 
-                // Build the final statement with attributes
+                // --- NEW: Consume optional comma or layout ---
+                skipWhitespace();
+                if (isOperator(Operator.COMMA)) {
+                    consumeOperator(Operator.COMMA);
+                    skipWhitespace();
+                }
+
+                // build statement
                 Statement stmt = new Assignment(id, valueRes.value(), attrs);
                 module.addStatement(stmt);
-
                 continue;
             }
 
-            // if we reach here, it's an unexpected token
+            // unexpected token
             error(ErrorCode.UNEXPECTED_TOKEN, line, col);
             recover();
         }
@@ -144,109 +153,104 @@ public class AuroraParser {
 
     private Dialect detectDialect(Dialect hint) {
         skipLeadingLayout();
-
         if (isShebang()) {
             String token = consume(5); // "#!asl" or "#!aml"
             return Dialect.fromShebang(token);
         }
-
         return hint;
     }
 
-//    private Statement parseStatement(String id) {
-//        // 1. try assignment operator
-//        if(isOperator(Operator.ASSIGN)) {
-//            if(!consume(Operator.ASSIGN.symbol().length()).isEmpty()) {
-//                skipWhitespace();
-//                // we have an assignment operator so we parse value ...
-//                var value = parseValue();
-//
-//                if (value.isSuccess()) {
-//                    return new Assignment(id, value.value());
-//                } else {
-//                    // error reported inside value result
-//                    errors.addAll(value.errors());
-//                    recover();
-//                    return null;
-//                }
-//            }
-//        }
-//
-//        // no assignment operator
-//        error(ErrorCode.EXPECTED_ASSIGN, line, col);
-//        return null;
-//    }
-    
+    /* --------------------------------------------------------------
+       ATTRIBUTE BLOCK @[ … ]
+       -------------------------------------------------------------- */
     private ValueParseResult<List<Attribute>> parseAttributeBlock() {
-        if (!isOperator(Operator.L_BRACKET)) return success(List.of());
-        int startLine = line, startCol = col;
-        consume(); // eat '['
+        inAttributeContext = true;
+        try {
+            if (!isOperator(Operator.L_BRACKET)) return success(List.of());
+            int startLine = line, startCol = col;
+            consume(); // eat '['
 
-        List<Attribute> attrs = new ArrayList<>();
-        while (true) {
-            skipWhitespace();
-            if (isOperator(Operator.R_BRACKET)) { consume(); break; }
-
-            // tag or key=value
-            int idLen = isIdentifier();
-            if (idLen == 0) return failure(ErrorCode.EXPECTED_IDENTIFIER, line, col);
-            String key = consume(idLen);
-
-            Value val = null;
-            skipWhitespace();
-            if (consumeOperator(Operator.EQUAL)) {
+            List<Attribute> attrs = new ArrayList<>();
+            while (true) {
                 skipWhitespace();
-                var literal = parseLiteral();                 // literal only – no nesting
-                if (!literal.isSuccess()) return literal.cast();
-                val = literal.value();
-            }
-            attrs.add(new Attribute(key, val));
+                if (isOperator(Operator.R_BRACKET)) { consume(); break; }
 
-            skipWhitespace();
-            if (!isOperator(Operator.COMMA)) break;
-            consume(); // comma
+                int idLen = isIdentifier();
+                if (idLen == 0) return failure(ErrorCode.EXPECTED_IDENTIFIER, line, col);
+                String key = consume(idLen);
+
+                Value val = null;
+                skipWhitespace();
+                if (consumeOperator(Operator.EQUAL)) {
+                    skipWhitespace();
+                    var literal = parseLiteral();
+                    if (!literal.isSuccess()) return literal.cast();
+                    val = literal.value();
+                }
+                attrs.add(new Attribute(key, val));
+
+                skipWhitespace();
+                if (!isOperator(Operator.COMMA)) break;
+                consume(); // comma
+            }
+            if (!consumeOperator(Operator.R_BRACKET)) {
+                return failure(ErrorCode.EXPECTED_ARRAY_CLOSE, startLine, startCol);
+            }
+            return success(attrs);
+        } finally {
+            inAttributeContext = false;
         }
-        if (!consumeOperator(Operator.R_BRACKET)) {
-            return failure(ErrorCode.EXPECTED_ARRAY_CLOSE, startLine, startCol);
-        }
-        return success(attrs);
     }
 
+    /* --------------------------------------------------------------
+       VALUE PARSING (including bare identifiers)
+       -------------------------------------------------------------- */
     private @NotNull ValueParseResult<Value> parseValue() {
-        // object type
+        // BARE IDENTIFIER (stone, block.stone) – only outside attribute context
+        if (!inAttributeContext) {
+            int idLen = isIdentifier();
+            if (idLen > 0) {
+                String id = consume(idLen);
+                if (!isKeyword(id) && isValidBareIdentifier(id)) {
+                    return ValueParseResult.success(new Value.StringValue(id));
+                }
+            }
+        }
+
+        // object
         if (isOperator(Operator.L_BRACE)) {
             return parseAnonymousObject();
         }
-        // array type
+        // array
         if (isOperator(Operator.L_BRACKET)) {
             return parseArray();
         }
-        // primitive types
+        // free-form @`…`
         if (is("@")) {
             return parseFreeform();
         }
+        // literals
         if (is("null")) {
             consume(4);
             return success(new Value.NullValue());
         }
         if (is("true")) {
             consume(4);
-            return success((new Value.BooleanValue(true)));
+            return success(new Value.BooleanValue(true));
         }
         if (is("false")) {
             consume(5);
-            return success((new Value.BooleanValue(false)));
+            return success(new Value.BooleanValue(false));
         }
-        // ---- anonymous identifier (e.g. block, vanilla) ----
+        // anonymous identifier (fallback – kept for compatibility)
         int idLen = isIdentifier();
         if (idLen > 0) {
             String id = consume(idLen);
             if (!isKeyword(id)) {
                 return ValueParseResult.success(new Value.AnonymousValue(id));
             }
-            // fall through to keyword handling (true/false/null)
         }
-        // string & numeric types
+        // string
         if (isOperator(Operator.QUOTE)) {
             consumeOperator(Operator.QUOTE);
             String value = matchString();
@@ -256,13 +260,14 @@ public class AuroraParser {
             } else {
                 return failure(ErrorCode.UNTERMINATED_STRING, line, col);
             }
-        } else {
-            NumericParseResult numeric = parseNumber();
-            if (numeric.isSuccess()) {
-                return ValueParseResult.success(numeric.value());
-            } else if (!numeric.errors().isEmpty()) {
-                return ValueParseResult.failure(numeric.errors());
-            }
+        }
+
+        // number
+        NumericParseResult numeric = parseNumber();
+        if (numeric.isSuccess()) {
+            return ValueParseResult.success(numeric.value());
+        } else if (!numeric.errors().isEmpty()) {
+            return ValueParseResult.failure(numeric.errors());
         }
 
         return failure(ErrorCode.EXPECTED_VALUE, line, col);
@@ -271,39 +276,193 @@ public class AuroraParser {
     private ValueParseResult<Value> parseLiteral() {
         var vp = parseValue();
         if (!vp.isSuccess()) return vp;
-        
+
         Value v = vp.value();
         if (v instanceof Value.ObjectValue || v instanceof Value.ArrayValue) {
             return ValueParseResult.failure(ErrorCode.INVALID_VALUE_IN_ATTRIBUTE, line, col);
         }
-        
         return vp;
     }
-    
+
+    /* --------------------------------------------------------------
+       OBJECT, ARRAY, FREEFORM, NUMBER, etc.
+       -------------------------------------------------------------- */
+    private @NotNull ValueParseResult<Value> parseAnonymousObject() {
+        List<Map.Entry<String, Value>> fields = new ArrayList<>();
+        List<ParseError> errs = new ArrayList<>();
+        int start = pos;
+        boolean loop = !isOperator(Operator.R_BRACE);
+
+        consumeOperator(Operator.L_BRACE);
+        while (!isEOF() && loop) {
+            skipWhitespace();
+
+            int idLen = isIdentifier();
+            if (idLen == 0) {
+                errs.add(new ParseError(line, col, ErrorCode.EXPECTED_OBJECT_FIELD));
+                recoverToObjectEnd();
+                break;
+            }
+            String field = consume(idLen);
+            if (isKeyword(field)) {
+                errs.add(new ParseError(line, col, ErrorCode.INVALID_KEY_IN_OBJECT));
+                recoverToObjectEnd();
+                break;
+            }
+
+            skipWhitespace();
+            if (!isOperator(Operator.ASSIGN)) {
+                errs.add(new ParseError(line, col, ErrorCode.EXPECTED_ASSIGN));
+                recoverToObjectEnd();
+                break;
+            }
+            consumeOperator(Operator.ASSIGN);
+
+            skipWhitespace();
+            var valueResult = parseValue();
+            if (!valueResult.isSuccess()) {
+                errs.addAll(valueResult.errors());
+                recoverToObjectEnd();
+                break;
+            }
+
+            if (fields.contains(field)) {
+                errs.add(new ParseError(line, col, ErrorCode.DUPLICATE_FIELD_IN_OBJECT));
+            } else {
+                fields.add(Map.entry(field, valueResult.value()));
+            }
+
+            if (isOperator(Operator.COMMA)) {
+                consumeOperator(Operator.COMMA);
+            }
+            if (isOperator(Operator.NEWLINE)) {
+                consumeOperator(Operator.NEWLINE);
+            }
+
+            skipWhitespace();
+            loop = !isOperator(Operator.R_BRACE);
+        }
+
+        if (!isOperator(Operator.R_BRACE)) {
+            errs.add(new ParseError(line, col, ErrorCode.EXPECTED_OBJECT_CLOSE));
+            recoverToObjectEnd();
+            return ValueParseResult.failure(errs);
+        }
+        consumeOperator(Operator.R_BRACE);
+
+        String sourceText = source.substring(start, pos);
+        return errs.isEmpty()
+                ? ValueParseResult.success(new Value.ObjectValue(fields, sourceText))
+                : ValueParseResult.failure(errs);
+    }
+
+    private ValueParseResult<Value> parseArray() {
+        int fullStart = pos;
+        int startLine = line, startCol = col;
+        List<ParseError> errs = new ArrayList<>();
+        List<Value> elements = new ArrayList<>();
+
+        consume(); // '['
+
+        while (!isEOF() && !isOperator(Operator.R_BRACKET)) {
+            skipWhitespace();
+
+            if (isOperator(Operator.COMMA)) {
+                consumeOperator(Operator.COMMA);
+                skipWhitespace();
+                if (isOperator(Operator.R_BRACKET)) {
+                    errs.add(new ParseError(line, col, ErrorCode.TRAILING_COMMA_IN_ARRAY));
+                    break;
+                }
+                continue;
+            }
+
+            ValueParseResult<Value> elemRes = parseValue();
+            if (!elemRes.isSuccess()) {
+                errs.addAll(elemRes.errors());
+                recoverToArrayEnd();
+                break;
+            }
+            elements.add(elemRes.value());
+
+            skipWhitespace();
+            if (isOperator(Operator.COMMA)) {
+                consumeOperator(Operator.COMMA);
+                skipWhitespace();
+            }
+        }
+
+        if (!isOperator(Operator.R_BRACKET)) {
+            errs.add(new ParseError(line, col, ErrorCode.EXPECTED_ARRAY_CLOSE));
+            recoverToArrayEnd();
+            return ValueParseResult.failure(errs);
+        }
+        consumeOperator(Operator.R_BRACKET);
+
+        String sourceText = source.substring(fullStart, pos);
+        return errs.isEmpty()
+                ? ValueParseResult.success(new Value.ArrayValue(List.copyOf(elements), sourceText))
+                : ValueParseResult.failure(errs);
+    }
+
+    private ValueParseResult<Value> parseFreeform() {
+        int startLine = line, startCol = col;
+        consume(); // '@'
+
+        String attrib = null;
+        int idLen = isIdentifier();
+        if (idLen > 0) {
+            attrib = consume(idLen);
+            if (isKeyword(attrib)) {
+                return failure(ErrorCode.ATTRIBUTE_IS_KEYWORD, startLine, startCol);
+            }
+        }
+
+        if (!isOperator(Operator.BACKTICK)) {
+            return failure(ErrorCode.EXPECTED_BACKTICK, startLine, startCol);
+        }
+        consumeOperator(Operator.BACKTICK);
+
+        int contentStart = pos;
+        while (!isEOF()) {
+            if (isOperator(Operator.BACKTICK) && !isEscaped(pos)) break;
+            consume();
+        }
+        String rawContent = source.substring(contentStart, pos);
+
+        if (!isOperator(Operator.BACKTICK)) {
+            return failure(ErrorCode.UNTERMINATED_FREEFORM, line, col);
+        }
+        consumeOperator(Operator.BACKTICK);
+
+        return success(new Value.FreeformValue("`" + rawContent + "`", attrib));
+    }
+
+    private boolean isEscaped(int pos) {
+        int backslashes = 0;
+        for (int i = pos - 1; i >= 0 && source.charAt(i) == '\\'; i--) backslashes++;
+        return backslashes % 2 == 1;
+    }
+
     private NumericParseResult parseNumber() {
         int start = pos;
         int startLine = line, startCol = col;
         boolean isHex = false;
 
-        // Optional sign
         if (peek(0) == '-') consume();
 
-        // Hex: #ff00aa
         if (peek(0) == '#' && isHexDigit(peek(1))) {
             consume(); // #
             isHex = true;
             while (isHexDigit(peek(0))) consume();
         } else {
-            // Decimal digits
             while (isDigit(peek(0))) consume();
 
-            // Fractional part
             if (peek(0) == '.') {
                 consume();
                 while (isDigit(peek(0))) consume();
             }
 
-            // Exponent
             if (peek(0) == 'e' || peek(0) == 'E') {
                 consume();
                 if (peek(0) == '+' || peek(0) == '-') consume();
@@ -325,393 +484,142 @@ public class AuroraParser {
         }
     }
 
-    private @NotNull ValueParseResult<Value> parseAnonymousObject() {
-        Map<String, Value> fields = new HashMap<>();
-        List<ParseError> errors = new ArrayList<>();
-        int start = pos;
-        boolean loop = !isOperator(Operator.R_BRACE);
+    /* --------------------------------------------------------------
+       LOW-LEVEL HELPERS
+       -------------------------------------------------------------- */
+    private boolean isEOF() { return pos >= source.length(); }
 
-        consumeOperator(Operator.L_BRACE);
-        while (!isEOF() && loop) {
-            skipWhitespace();
+    private boolean isAlpha(char c) { return Character.isLetter(c) || c == '_'; }
 
-            // 1. Field (identifier)
-            int idLen = isIdentifier();
-            if (idLen == 0) {
-                errors.add(new ParseError(line, col, ErrorCode.EXPECTED_OBJECT_FIELD));
-                recoverToObjectEnd();
-                break;
-            }
-            String field = consume(idLen);
-            if(isKeyword(field)) {
-                errors.add(new ParseError(line, col, ErrorCode.INVALID_KEY_IN_OBJECT));
-                recoverToObjectEnd();
-                break;
-            }
-            // 2. Assignment operator
-            skipWhitespace();
-            if (!isOperator(Operator.ASSIGN)) {
-                errors.add(new ParseError(line, col, ErrorCode.EXPECTED_ASSIGN));
-                recoverToObjectEnd();
-                break;
-            }
-            consumeOperator(Operator.ASSIGN);
-            // 3. Value
-            skipWhitespace();
-            var valueResult = parseValue();
-            if (!valueResult.isSuccess()) {
-                errors.addAll(valueResult.errors());
-                recoverToObjectEnd();
-                break;
-            }
-            // 4. Check for duplicate field
-            if (fields.containsKey(field)) {
-                errors.add(new ParseError(line, col, ErrorCode.DUPLICATE_FIELD_IN_OBJECT));
-            } else {
-                fields.put(field, valueResult.value());
-            }
-            // 5. Separator (, or \n) or end block
-            if (isOperator(Operator.COMMA)) {
-                consumeOperator(Operator.COMMA);
-            }
-            if (isOperator(Operator.NEWLINE)){
-                consumeOperator(Operator.NEWLINE);
-            }
+    private boolean isAlphaNumeric(char c) { return Character.isLetterOrDigit(c) || c == '_'; }
 
-            skipWhitespace();
-            loop = !isOperator(Operator.R_BRACE);
-        }
+    private static boolean isDigit(char c) { return c >= '0' && c <= '9'; }
 
-
-        // ---- Closing brace ----
-        if (!isOperator(Operator.R_BRACE)) {
-            errors.add(new ParseError(line, col, ErrorCode.EXPECTED_OBJECT_CLOSE));
-            recoverToObjectEnd();
-            return ValueParseResult.failure(errors);
-        }
-        consumeOperator(Operator.R_BRACE);
-
-        String sourceText = source.substring(start, pos);
-        return errors.isEmpty()
-                ? ValueParseResult.success(new Value.ObjectValue(Map.copyOf(fields), sourceText))
-                : ValueParseResult.failure(errors);
-    }
-
-    private ValueParseResult<Value> parseArray() {
-        int fullStart = pos;
-        int startLine = line, startCol = col;
-        List<ParseError> errors = new ArrayList<>();
-        List<Value> elements = new ArrayList<>();
-
-        consume(); // consume '['
-
-        while (!isEOF() && !isOperator(Operator.R_BRACKET)) {
-            skipWhitespace();
-
-            // Optional trailing comma
-            if (isOperator(Operator.COMMA)) {
-                consumeOperator(Operator.COMMA);
-                skipWhitespace();
-                if (isOperator(Operator.R_BRACKET)) {
-                    errors.add(new ParseError(line, col, ErrorCode.TRAILING_COMMA_IN_ARRAY));
-                    break;
-                }
-                continue;
-            }
-
-            ValueParseResult<Value> elemRes = parseValue();
-            if (!elemRes.isSuccess()) {
-                errors.addAll(elemRes.errors());
-                recoverToArrayEnd();
-                break;
-            }
-            elements.add(elemRes.value());
-
-            skipWhitespace();
-            if (isOperator(Operator.COMMA)) {
-                consumeOperator(Operator.COMMA);
-                skipWhitespace();
-            }
-        }
-
-        if (!isOperator(Operator.R_BRACKET)) {
-            errors.add(new ParseError(line, col, ErrorCode.EXPECTED_ARRAY_CLOSE));
-            recoverToArrayEnd();
-            return ValueParseResult.failure(errors);
-        }
-        consumeOperator(Operator.R_BRACKET);
-
-        String sourceText = source.substring(fullStart, pos);
-        return errors.isEmpty()
-                ? ValueParseResult.success(new Value.ArrayValue(List.copyOf(elements), sourceText))
-                : ValueParseResult.failure(errors);
-    }
-
-    private ValueParseResult<Value> parseFreeform() {
-        int startLine = line, startCol = col;
-        consume();                                 // the leading '@'
-
-        // ---- optional attribute: reuse identifier parser ----
-        String attrib = null;
-        int idLen = isIdentifier();
-        if (idLen > 0) {
-            attrib = consume(idLen); // consume identifier
-            // attribute cannot be a keyword
-            if (isKeyword(attrib)) {
-                return failure(ErrorCode.ATTRIBUTE_IS_KEYWORD, startLine, startCol);
-            }
-        }
-
-        // ---- opening back-tick ----
-        if (!isOperator(Operator.BACKTICK)) {
-            return failure(ErrorCode.EXPECTED_BACKTICK, startLine, startCol);
-        }
-        consumeOperator(Operator.BACKTICK);
-
-        // ---- raw content until closing back-tick (escaped ` allowed) ----
-        int contentStart = pos;
-        while (!isEOF()) {
-            if (isOperator(Operator.BACKTICK) && !isEscaped(pos)) break;
-            consume();
-        }
-        String rawContent = source.substring(contentStart, pos);
-
-        // ---- closing back-tick ----
-        if (!isOperator(Operator.BACKTICK)) {
-            return failure(ErrorCode.UNTERMINATED_FREEFORM, line, col);
-        }
-        consumeOperator(Operator.BACKTICK);
-
-        return success(new Value.FreeformValue("`" + rawContent + "`", attrib));
-    }
-
-    /** true if the back-tick at *pos* is preceded by an odd number of \ */
-    private boolean isEscaped(int pos) {
-        int backslashes = 0;
-        for (int i = pos - 1; i >= 0 && source.charAt(i) == '\\'; i--) backslashes++;
-        return backslashes % 2 == 1;
-    }
-
-    // --- helpers ---
-    private boolean isEOF() {
-        return pos >= source.length();
-    }
-    private boolean isAlpha(char c) {
-        return Character.isLetter(c) || c == '_';
-    }
-    private boolean isAlphaNumeric(char c) {
-        return Character.isLetterOrDigit(c) || c == '_';
-    }
-    private static boolean isDigit(char c) {
-        return c >= '0' && c <= '9';
-    }
     private static boolean isHexDigit(char c) {
-        return isDigit(c) || (c >= 'a' && c <= 'f')
-                || (c >= 'A' && c <= 'F');
+        return isDigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
     }
 
     private char consume() {
         if (isEOF()) return '\0';
         char c = source.charAt(pos++);
-        if (c == '\n') {
-            line++;
-            col = 1;
-        } else {
-            col++;
-        }
+        if (c == '\n') { line++; col = 1; } else { col++; }
         return c;
     }
-    // consume n characters and return the string
+
     private @NotNull String consume(int n) {
         if (n == 0) return "";
-
-        char[] builder = new char[n];
-        for (int i = 0; i < n; i++) {
-            builder[i] = consume();
-        }
-        return new String(builder);
+        char[] buf = new char[n];
+        for (int i = 0; i < n; i++) buf[i] = consume();
+        return new String(buf);
     }
+
     private boolean consumeOperator(Operator op) {
         if (isOperator(op)) {
             consume(op.length());
             return true;
         }
-
         return false;
     }
 
-    private char peek() {
-        return peek(0);
-    }
+    private char peek() { return peek(0); }
+
     private char peek(int offset) {
         int ndx = pos + offset;
-        return isEOF() ? '\0' : source.charAt(ndx);
+        return ndx < source.length() ? source.charAt(ndx) : '\0';
     }
 
-    /*
-        `match*` functions will consume only on success; otherwise, position is unchanged
-        Examples:
-            matchKeyword("model")
-            matchIdentifier(n)
-            ... etc.
-
-        `expect*` function will only look ahead
-        Examples:
-            expectShebang()
-            expect("/*")
-            ... etc.
-     */
     private @NotNull String matchString() {
-        StringBuilder strBuilder = new StringBuilder();
+        StringBuilder sb = new StringBuilder();
         while (!isEOF() && !isOperator(Operator.QUOTE)) {
             char c = consume();
             if (c == '\\') {
-                // escape sequence
                 char next = peek();
                 switch (next) {
-                    case 'n' -> {
-                        consume();
-                        strBuilder.append('\n');
-                    }
-                    case 't' -> {
-                        consume();
-                        strBuilder.append('\t');
-                    }
-                    case 'r' -> {
-                        consume();
-                        strBuilder.append('\r');
-                    }
-                    case '\\' -> {
-                        consume();
-                        strBuilder.append('\\');
-                    }
-                    case '"' -> {
-                        consume();
-                        strBuilder.append('"');
-                    }
-                    default -> strBuilder.append(c);
+                    case 'n' -> { consume(); sb.append('\n'); }
+                    case 't' -> { consume(); sb.append('\t'); }
+                    case 'r' -> { consume(); sb.append('\r'); }
+                    case '\\' -> { consume(); sb.append('\\'); }
+                    case '"' -> { consume(); sb.append('"'); }
+                    default -> sb.append(c);
                 }
             } else {
-                strBuilder.append(c);
+                sb.append(c);
             }
         }
-        return strBuilder.toString();
+        return sb.toString();
     }
 
     private boolean isShebang() {
-        // check for either #!asl or #!aml
-        boolean isMatch = false;
-        if (is("#!asl") || is("#!aml")) {
-            hasShebang = true;
-            isMatch = true;
-        }
-        return isMatch;
+        boolean match = is("#!asl") || is("#!aml");
+        if (match) hasShebang = true;
+        return match;
     }
+
     private int isIdentifier() {
-        // match identifier at current position - should never advance so
-        // we never save position -- just report the facts
-        int length = 0;
+        int len = 0;
         if (isEOF() || !isAlpha(peek())) return 0;
-
-        while(isAlphaNumeric(peek(length))) {
-            length++;
-        }
-
-        return length;
+        while (isAlphaNumeric(peek(len))) len++;
+        return len;
     }
+
     private boolean is(String s) {
-        // match string s at current position - should never advance so
-        // we never save position -- just report the facts
-        boolean isMatch = true;
         for (int i = 0; i < s.length(); i++) {
-            if (isEOF()) {
-                isMatch = false;
-                break;
-            }
-            else {
-                isMatch &= peek(i) == s.charAt(i);
-            }
+            if (isEOF() || peek(i) != s.charAt(i)) return false;
         }
-        return isMatch;
+        return true;
     }
-    private boolean isOperator(Operator op) {
-        return is(op.symbol());
-    }
-    private boolean isKeyword(String s) {
-        return KEYWORDS.contains(s);
-    }
+
+    private boolean isOperator(Operator op) { return is(op.symbol()); }
+
+    private boolean isKeyword(String s) { return KEYWORDS.contains(s); }
 
     private void skipLeadingLayout() {
         while (!isEOF()) {
             skipWhitespace();
             if (isEOF()) break;
-            if (peek() == '/' && peek(1) == '/') {
-                skipLineComment();
-            } else if (peek() == '/' && peek(1) == '*') {
-                skipBlockComment();
-            } else {
-                break;
-            }
+            if (peek() == '/' && peek(1) == '/') skipLineComment();
+            else if (peek() == '/' && peek(1) == '*') skipBlockComment();
+            else break;
         }
     }
+
     private void skipWhitespace() {
         while (true) {
             char c = peek();
-            if (c == ' ' || c == '\t' || c == '\r' || c == '\n') {
-                consume();
-            } else if (c == '/' && peek(1) == '/')
-                skipLineComment();
-            else if (c == '/' && peek(1) == '*')
-                skipBlockComment();
-            else
-                break;
+            if (c == ' ' || c == '\t' || c == '\r' || c == '\n') consume();
+            else if (c == '/' && peek(1) == '/') skipLineComment();
+            else if (c == '/' && peek(1) == '*') skipBlockComment();
+            else break;
         }
     }
+
     private void skipLineComment() {
-        while (peek() != '\n' && !isEOF())
-            consume();
+        while (peek() != '\n' && !isEOF()) consume();
     }
+
     private void skipBlockComment() {
         consume(2);
         int nest = 1;
         while (nest > 0 && !isEOF()) {
-            if (peek() == '*' && peek(1) == '/') {
-                consume(2);
-                nest--;
-            } else if (peek() == '/' && peek(1) == '*') {
-                consume(2);
-                nest++;
-            } else
-                consume();
+            if (peek() == '*' && peek(1) == '/') { consume(2); nest--; }
+            else if (peek() == '/' && peek(1) == '*') { consume(2); nest++; }
+            else consume();
         }
     }
 
-    // error reporting and recovery
     private boolean errShebang(Module module) {
-        boolean ifErr = false;
-        if (peek() == '#' && isShebang()){
-            if (hasShebang) {
-                error(ErrorCode.MULTIPLE_SHEBANG, line, col);
-                ifErr = true;
-            }
-            if(module.hasStatements()) {
-                error(ErrorCode.SHEBANG_AFTER_STATEMENTS, line, col);
-                ifErr = true;
-            }
+        if (peek() == '#' && isShebang()) {
+            if (hasShebang) error(ErrorCode.MULTIPLE_SHEBANG, line, col);
+            if (module.hasStatements()) error(ErrorCode.SHEBANG_AFTER_STATEMENTS, line, col);
+            return true;
         }
-
-        return ifErr;
-    }
-
-    private void error(ErrorCode code, int line, int col) {
-        errors.add(new ParseError(line, col, code));
-        recover();
+        return false;
     }
 
     private void recover() {
-        while (!isEOF() && peek() != '\n' && peek() != ';')
-            consume();
+        while (!isEOF() && peek() != '\n' && peek() != ';') consume();
     }
+
     private void recoverToObjectEnd() {
         int depth = 1;
         while (!isEOF() && depth > 0) {
@@ -720,6 +628,7 @@ public class AuroraParser {
             consume();
         }
     }
+
     private void recoverToArrayEnd() {
         int depth = 1;
         while (!isEOF() && depth > 0) {

@@ -33,7 +33,10 @@ public class FileTest {
                 return;
         }
 
+        long start = System.nanoTime();
         ParseResult<?> result = AuroraParser.parse(path); // lexer-less
+        long parseTime = System.nanoTime() - start;
+
         var module = (Module)result.result();
         if (module == null) {
             // print errors if any
@@ -78,6 +81,8 @@ public class FileTest {
         } else {
             System.out.println("Module did not complete parsing.");
         }
+
+        System.out.printf("Parse time: %.3f ms%n", parseTime / 1_000_000.0);
         if (!result.errors().isEmpty()) {
             System.out.printf("FAILED — %d error(s)%n", result.errors().size());
             result.errors().forEach(e -> System.err.printf(" [%d:%d] %s%n", e.line(),

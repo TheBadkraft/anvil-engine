@@ -5,6 +5,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 public sealed interface Value
@@ -60,16 +61,22 @@ public sealed interface Value
     }
     /** Object value representation.
      */
-    record ObjectValue(Map<String, Value> fields, String source) implements Value {
-        public ObjectValue(Map<String, Value> fields) {
-            this(fields, null);
+    record ObjectValue(List<Map.Entry<String, Value>> fields, String source) implements Value {
+        public ObjectValue {
+            fields = List.copyOf(fields);
+            Objects.requireNonNull(source);
         }
 
         @Override
         public @NotNull String toString() {
-            return source != null ? source : "{" + fields.entrySet().stream()
+            return "{" + fields.stream()
                     .map(e -> e.getKey() + " := " + e.getValue())
                     .collect(Collectors.joining(", ")) + "}";
+        }
+
+        public Map<String, Value> asMap(){
+            return fields.stream()
+                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
         }
     }
     /** Freeform value representation.

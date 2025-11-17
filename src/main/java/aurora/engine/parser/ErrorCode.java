@@ -18,6 +18,7 @@ public enum ErrorCode {
     MULTIPLE_SHEBANG(2004, "Multiple shebangs not allowed"),
     SHEBANG_AFTER_STATEMENTS(2005, "Shebang must be first non-whitespace line"),
     INVALID_VALUE_IN_ATTRIBUTE(2006, "Attribute value cannot be an object or array"),
+    INVALID_IDENTIFIER(2007, "Invalid identifier format"),
 
     // PARSER - OBJECT (300x)
     EXPECTED_OBJECT_FIELD(3001, "Expected object key"),
