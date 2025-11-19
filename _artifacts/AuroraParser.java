@@ -1,4 +1,4 @@
-// src/main/java/aurora/engine/parser/AmlParser.java
+// src/main/java/dev/badkraft/engine/parser/AmlParser.java
 package aurora.engine.parser;
 
 import aurora.engine.parser.aml.Model;

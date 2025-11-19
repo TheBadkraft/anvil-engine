@@ -1,0 +1,17 @@
+#!aml
+
+// Trailing commas allowed in objects/arrays
+config := {
+    a := 1,
+    b := 2,
+}
+
+// But not in tuples (correctly rejected)
+// invalid := (1, 2, )
+
+// Empty object/array - invalid
+//empty_obj := {}
+//empty_arr := []
+
+// Single-element tuples invalid (must have ≥2)
+//single_tuple := (42)

@@ -1,0 +1,12 @@
+#!aml
+
+// This file should survive parse → pretty-print → re-parse unchanged
+fancy := {
+    name := "Fancy Block",
+    textures := {
+        all := "block/gold_block",
+    },
+    hardness := 3.0,
+    tags := [ "mineable/pickaxe", "needs_stone_tool" ],
+    drop := (gold_ingot, (1, 3))
+}

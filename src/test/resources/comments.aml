@@ -1,0 +1,16 @@
+#!aml
+
+// Line comment
+value := 100
+
+/*
+   Block comment
+   spanning lines
+*/
+multi_line := (
+    // comment inside tuple
+    1, 2, 3
+)
+
+/* nested /* blocks */ work too */
+final := "done"

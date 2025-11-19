@@ -1,0 +1,30 @@
+// test/arrays.aml
+#!aml
+
+chunks := [
+    (0, 0),
+    (1, 0),
+    (0, 1),
+    (-1, 2)
+]
+
+entities := [
+    (player, "Steve"),
+    (zombie, null),
+    (cow, "Bessie")
+]
+
+settings := [
+    default := {
+        resolution := (800, 600),
+        console := false,
+        volume := 5,
+        bonus_chest := false
+    },
+    custom := {
+        resolution := (1920, 1080),
+        console := true,
+        volume := 7,
+        bonus_chest := true
+    }
+]
