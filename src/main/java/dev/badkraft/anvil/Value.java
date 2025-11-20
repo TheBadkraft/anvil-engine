@@ -3,6 +3,7 @@ package dev.badkraft.anvil;
 
 import org.jetbrains.annotations.NotNull;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -69,13 +70,16 @@ public sealed interface Value permits
             Objects.requireNonNull(source);
         }
         @Override public @NotNull String toString() {
-            if (source != null) return source;
-            return "{" + fields.stream()
-                    .map(e -> e.getKey() + " := " + e.getValue())
-                    .collect(Collectors.joining(", ")) + "}";
+            return source;
         }
         public Map<String, Value> asMap() {
-            return fields.stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+            LinkedHashMap<String, Value> map = new LinkedHashMap<>();
+            for (var e : fields) {
+                if (map.put(e.getKey(), e.getValue()) != null) {
+                    throw new IllegalStateException("Duplicate key: " + e.getKey());
+                }
+            }
+            return Map.copyOf(map);
         }
     }
     record BlobValue(String content, String attribute) implements Value {

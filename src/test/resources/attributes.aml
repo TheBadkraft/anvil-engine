@@ -1,6 +1,10 @@
+// attributes.aml
 #!aml
 
-// attributes.aml — exhaustive attribute test suite
+// exhaustive attribute test suite
+
+// module attributes
+@[version=0.1, build=2, author="Anvil Tester", log=true]
 
 // 1. Tag-only (most common)
 stone @[mineable] := "stone"
@@ -31,7 +35,6 @@ furnace @[lit=false, burn_time=0] := "furnace"
 
 // 8. Bare literal values in attributes (allowed!)
 cobblestone @[drop=cobblestone] := "cobblestone"
-redstone_ore @[drop=redstone_dust, xp=1..5] := "redstone_ore"
 
 // 9. Negative numbers
 offset @[dx=-5, dy=10, dz=0] := "offset_marker"

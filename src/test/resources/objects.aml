@@ -1,5 +1,13 @@
 #!aml
 
+point := { x := 10, y := 20 }
+config := {
+    name := "server"
+    port := 8080
+    debug := false
+}
+
+// --- Example object variants ---
 player @[profile] := {
     name := "Notch",
     uuid := @guid`f78c11e6-3ab4-4e7f-8b5d-1f2a3b4c5d6e`,

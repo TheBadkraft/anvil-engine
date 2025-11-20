@@ -7,6 +7,7 @@ public final class Module {
     boolean parsed = false;
     Dialect dialect = Dialect.NONE;
     private final String namespace;
+    private final List<Attribute> attributes = new ArrayList<>();
     private final List<Statement> statements = new ArrayList<>();
     private final Set<String> exportedIdentifiers = new LinkedHashSet<>();
 
@@ -41,6 +42,9 @@ public final class Module {
     public void addAllIdentifiers(Collection<String> identifiers) {
         this.exportedIdentifiers.addAll(identifiers);
     }
+    public void addAllAttributes(List<Attribute> moduleAttribs) {
+        attributes.addAll(moduleAttribs);
+    }
 
     /**
         Validates the document structure.
@@ -74,4 +78,5 @@ public final class Module {
         }
         return true;
     }
+
 }

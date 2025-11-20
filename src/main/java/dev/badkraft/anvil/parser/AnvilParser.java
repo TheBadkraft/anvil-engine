@@ -21,9 +21,11 @@ public class AnvilParser {
     );
 
     private final String source;
+    private final char[] attribMarker = {'@', '['};
     private final StringBuilder sb = new StringBuilder(MAX_SB_SIZE);
     private final List<ParseError> errors = new ArrayList<>();
     private Dialect moduleDialect = Dialect.NONE;
+    private boolean seenModuleAttribs = false;
     private int pos = 0;
     private int line = 1;
     private int col = 1;
@@ -70,6 +72,12 @@ public class AnvilParser {
     private void parseSource(Module module) {
         //  1. skip whitespace
         skipWhitespace();
+        List<Attribute> moduleAttribs = parseAttributeBlock();
+        if (!moduleAttribs.isEmpty()) {
+            seenModuleAttribs = true;
+            module.addAllAttributes(moduleAttribs);
+            skipWhitespace();
+        }
         while(!isEOF()) {
             //  2. parseStatement
             List<String> identifiers = new ArrayList<>();
@@ -77,54 +85,66 @@ public class AnvilParser {
             module.addStatement(statement);
             module.addAllIdentifiers(identifiers);
         }
+        module.markParsed();
     }
     private Statement parseStatement(List<String> identifiers) {
+        //  do not expect module attribs here
+        if (!seenModuleAttribs && readChars(attribMarker) != 0) {
+            raise(ErrorCode.UNEXPECTED_MODULE_ATTRIBUTES, line, col);
+        }
         //  1. Expect an identifier
         int idLen = readIdentifier();
         if (idLen == 0) {
-            error(ErrorCode.EXPECTED_IDENTIFIER, line, col);
+            raise(ErrorCode.EXPECTED_IDENTIFIER, line, col);
         }
         String id = take(idLen);
         skipWhitespace();
-
         //  2. Look for attributes
-        List<Attribute> attributes = List.of();
-
+        List<Attribute> attributes = parseAttributeBlock();
+        skipWhitespace();
         //  3. Expect Operator.ASSIGN
         int opLen = readOperator(Operator.ASSIGN);
         if (opLen == 0) {
-            error(ErrorCode.EXPECTED_ASSIGN, line, col);
+            raise(ErrorCode.EXPECTED_ASSIGN, line, col);
         }
         consume(opLen);
         skipWhitespace();
-
         //  4. Expect value
         Value value = parseValue();
         skipWhitespace();
-
         //  5. Expect Operator.COMMA, NL, or EOF
         int termLen = readOperator(Operator.COMMA);
         if (termLen > 0) {
             consume(termLen);
             skipWhitespace();
         }
-
         //  6. Construct and return Assignment
-        //  Add identifier now that we know statement is valid
         identifiers.add(id);
         return new Assignment(id, value, attributes);
     }
     private Value parseValue() {
-        // 1. STRING
+        // 1. OBJECT
+        if (isOperator(Operator.L_BRACE)) {
+            return parseObject();
+        }
+        //  2. ARRAY
+        if (isOperator(Operator.L_BRACKET)) {
+            return parseArray();
+        }
+        //  3. TUPLE
+        if (isOperator(Operator.L_PAREN)) {
+            return parseTuple();
+        }
+        //  4. STRING
         if (is("\"")) {
             return parseString();
         }
-        // 2. HEX VALUE
+        //  5. HEX VALUE
         if (is("#") || is("0x") || is("0X")) {
             // let's flag which kind and send to parser function
             return parseHexLiteral(is("#"));
         }
-        // 3. Keywords — boolean and null
+        //  6. Keywords — boolean and null
         if (is("true")) {
             consume(4);
             return new Value.BooleanValue(true);
@@ -137,18 +157,207 @@ public class AnvilParser {
             consume(4);
             return new Value.NullValue();
         }
-        // 4. BLOB - attribut is optional
+        //  7. BLOB - attribut is optional
         boolean hasAttrib = false;
         if ((hasAttrib = isOperator(Operator.AT)) || isOperator(Operator.BACKTICK)) {
             return parseBlob(hasAttrib);
         }
-        //  5. BARE LITERAL (unquoted string)
+        //  8. BARE LITERAL (unquoted string)
         String bare = readBareLiteral();
         if (bare != null) {
             return new Value.BareLiteral(bare);
         }
-        // 10. DECIMAL NUMBER - last chance fallback
+        //  9. DECIMAL NUMBER - last chance fallback
         return parseDecimalNumber();
+    }
+    private Value parseObject() {
+        int start = pos;
+        consumeOperator(Operator.L_BRACE);
+
+        List<Map.Entry<String, Value>> fields = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        skipWhitespace();
+
+        if (isOperator(Operator.R_BRACE)) {
+            raise(ErrorCode.EMPTY_OBJECT_NOT_ALLOWED, line, col);
+        }
+
+        while (!isOperator(Operator.R_BRACE)) {
+            int keyLen = readIdentifier();
+            if (keyLen == 0) raise(ErrorCode.EXPECTED_IDENTIFIER, line, col);
+            String key = take(keyLen);
+
+            if (!seen.add(key)) {
+                raise(ErrorCode.DUPLICATE_FIELD_IN_OBJECT, line, col);
+            }
+
+            skipWhitespace();
+            if (!isOperator(Operator.ASSIGN)) raise(ErrorCode.EXPECTED_ASSIGN, line, col);
+            consumeOperator(Operator.ASSIGN);
+            skipWhitespace();
+
+            Value value = parseValue();
+            fields.add(Map.entry(key, value));
+
+            skipWhitespace();
+            if (isOperator(Operator.COMMA)) {
+                consumeOperator(Operator.COMMA);
+                skipWhitespace();
+            }
+        }
+
+        consumeOperator(Operator.R_BRACE);
+
+        String fullSource = source.substring(start, pos);
+        return new Value.ObjectValue(fields, fullSource);
+    }
+    private Value parseArray() {
+        int start = pos;
+        consumeOperator(Operator.L_BRACKET); // [
+
+        List<Value> elements = new ArrayList<>();
+
+        skipWhitespace();
+
+        // Disallow empty array []
+        if (isOperator(Operator.R_BRACKET)) {
+            raise(ErrorCode.EMPTY_ARRAY_NOT_ALLOWED, line, col);
+        }
+
+        while (!isOperator(Operator.R_BRACKET)) {
+            Value element = parseValue();
+            elements.add(element);
+
+            skipWhitespace();
+
+            if (!isOperator(Operator.R_BRACKET)) {
+                if (!isOperator(Operator.COMMA)) {
+                    raise(ErrorCode.MISSING_COMMA_IN_ARRAY, line, col);
+                }
+                consumeOperator(Operator.COMMA);
+                skipWhitespace();
+            }
+        }
+
+        consumeOperator(Operator.R_BRACKET);
+
+        String fullSource = source.substring(start, pos);
+        return new Value.ArrayValue(elements, fullSource);
+    }
+    private Value parseTuple() {
+        int start = pos;
+        consumeOperator(Operator.L_PAREN); // (
+
+        List<Value> elements = new ArrayList<>();
+
+        skipWhitespace();
+
+        // Disallow empty tuple ()
+        if (isOperator(Operator.R_PAREN)) {
+            raise(ErrorCode.EMPTY_TUPLE_ELEMENT, line, col);
+        }
+
+        while (true) {
+            Value element = parseValue();
+            elements.add(element);
+            skipWhitespace();
+
+            if (isOperator(Operator.R_PAREN)) {
+                break;
+            }
+
+            // Comma required between elements
+            if (!isOperator(Operator.COMMA)) {
+                raise(ErrorCode.EXPECTED_COMMA_IN_TUPLE, line, col);
+            }
+            consumeOperator(Operator.COMMA);
+            skipWhitespace();
+        }
+
+        // Must have at least 2 elements
+        if (elements.size() < 2) {
+            raise(ErrorCode.TUPLE_TOO_SHORT, line, col);
+        }
+
+        consumeOperator(Operator.R_PAREN); // )
+
+        String fullSource = source.substring(start, pos);
+        return new Value.TupleValue(elements, fullSource);
+    }
+    private List<Attribute> parseAttributeBlock() {
+        final char[] attribMarker = {'@', '['};
+        int isAttrib = readChars(attribMarker);
+        switch (isAttrib) {
+            case 0:
+                return List.of(); // no attribute block
+            case 1:
+                raise(ErrorCode.INVALID_ATTRIBUTE_BLOCK, line, col);
+                break;
+            case 2:
+                // continue parsing
+                break;
+            default:
+                throw new AssertionError();
+        }
+        int startLine = line, startCol = col;
+        consume(isAttrib); // @[
+
+        List<Attribute> attrs = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+
+        skipWhitespace();
+
+        while (!is("]")) {
+            // Key — identifier only
+            int keyLen = readIdentifier();
+            if (keyLen == 0) raise(ErrorCode.INVALID_ATTRIBUTE, line, col);
+            String key = take(keyLen);
+
+            if (!seen.add(key)) {
+                raise(ErrorCode.DUPLICATE_ATTRIBUTE_KEY, line, col);
+            }
+
+            skipWhitespace();
+
+            Value value = null;
+            if (isOperator(Operator.EQUAL)) {
+                consumeOperator(Operator.EQUAL);
+                skipWhitespace();
+                value = parseLiteralValue();  // only literals allowed
+                skipWhitespace();
+            }
+
+            attrs.add(new Attribute(key, value));
+
+            // Comma required if not last
+            if (!is("]")) {
+                if (!isOperator(Operator.COMMA)) {
+                    raise(ErrorCode.MISSING_COMMA_IN_ATTRIBUTES, line, col);
+                }
+                consumeOperator(Operator.COMMA);
+                skipWhitespace();
+            }
+        }
+        if (attrs.isEmpty()){
+            raise(ErrorCode.EMPTY_ATTRIBUTE_BLOCK, line, col);
+        }
+
+        consume(1); // ]
+        return List.copyOf(attrs);
+    }
+    private Value parseLiteralValue() {
+        int saveLine = line, saveCol = col;
+        Value v = parseValue();
+
+        if (v instanceof Value.ObjectValue ||
+                v instanceof Value.ArrayValue ||
+                v instanceof Value.TupleValue ||
+                v instanceof Value.BlobValue) {
+            line = saveLine; col = saveCol;
+            raise(ErrorCode.INVALID_VALUE_IN_ATTRIBUTE, line, col);
+        }
+
+        return v;
     }
     private Value parseString() {
         String fullSource = parseContent(Operator.QUOTE);
@@ -181,7 +390,7 @@ public class AnvilParser {
         }
 
         if (!hasDigit) {
-            error(ErrorCode.INVALID_HEX_LITERAL, startLine, startCol);
+            raise(ErrorCode.INVALID_HEX_LITERAL, startLine, startCol);
         }
 
         String digits = sb.toString().replace("_", "");
@@ -191,7 +400,7 @@ public class AnvilParser {
         try {
             value = Long.parseLong(digits, 16);
         } catch (NumberFormatException e) {
-            error(ErrorCode.INVALID_HEX_LITERAL, startLine, startCol);
+            raise(ErrorCode.INVALID_HEX_LITERAL, startLine, startCol);
         }
 
         return isHash ?
@@ -262,12 +471,12 @@ public class AnvilParser {
                 }
             }
             if (!hasExpDigit) {
-                error(ErrorCode.INVALID_EXPONENT, line, col);
+                raise(ErrorCode.INVALID_EXPONENT, line, col);
             }
         }
 
         if (!hasDigit) {
-            error(ErrorCode.INVALID_NUMBER, startLine, startCol);
+            raise(ErrorCode.INVALID_NUMBER, startLine, startCol);
         }
 
         String source = sb.toString();
@@ -282,7 +491,7 @@ public class AnvilParser {
                 return new Value.LongValue(l, source);
             }
         } catch (NumberFormatException e) {
-            error(ErrorCode.INVALID_NUMBER, startLine, startCol);
+            raise(ErrorCode.INVALID_NUMBER, startLine, startCol);
         }
         return null; // unreachable
     }
@@ -297,7 +506,7 @@ public class AnvilParser {
             if (len > 0) {
                 attribute = take(len);
                 if (KEYWORDS.contains(attribute))
-                    error(ATTRIBUTE_IS_KEYWORD, line, col);
+                    raise(ATTRIBUTE_IS_KEYWORD, line, col);
             }
         }
 
@@ -313,7 +522,7 @@ public class AnvilParser {
     }
     private String parseContent(Operator delimiter) {
         if (delimiter != QUOTE && delimiter != Operator.BACKTICK) {
-            error(ErrorCode.UNEXPECTED_TOKEN, line, col);
+            raise(ErrorCode.UNEXPECTED_TOKEN, line, col);
         }
 
         int start = pos;                     // <-- remember where we started
@@ -327,7 +536,7 @@ public class AnvilParser {
         }
 
         if (!isOperator(delimiter)) {
-            error(delimiter == QUOTE ? UNTERMINATED_STRING : UNTERMINATED_BLOB, line, col);
+            raise(delimiter == QUOTE ? UNTERMINATED_STRING : UNTERMINATED_BLOB, line, col);
         }
         consumeOperator(delimiter);          // consume closing " or `
 
@@ -355,6 +564,9 @@ public class AnvilParser {
             if(peek(i + offset) != s.charAt(i)) return false;
         }
         return true;
+    }
+    private boolean is(char c, int offset) {
+        return peek(offset) == c;
     }
     private boolean isShebang() {
         return is("#!asl") || is("#!aml");
@@ -458,6 +670,26 @@ public class AnvilParser {
         if (isOperator(op)) len = op.length();
         return len;
     }
+    private int readChars(char[] chars) {
+        if (chars.length == 0) return 0;
+        /*
+            read each char and expect in source ... returning int is the last element
+            passing interrogation
+         */
+        int charLen = 0;
+        for(int ndx = 0; ndx < chars.length; ndx++) {
+            if (is(chars[ndx], ndx)) {
+                charLen++;
+                continue;
+            }
+            else {
+                break;
+            }
+        }
+
+        return charLen;
+    }
+
     // --- Utility consumers ---
     /*
         Consumers - skip*, consume* - advance the position in the stream. All
@@ -488,7 +720,7 @@ public class AnvilParser {
     // although not used we are keeping it for artifact completeness
     private @NotNull String matchText(Operator delimiter) {
         if (delimiter != QUOTE && delimiter != Operator.BACKTICK) {
-            error(ErrorCode.UNEXPECTED_TOKEN, line, col);
+            raise(ErrorCode.UNEXPECTED_TOKEN, line, col);
         }
         sb.setLength(0);
         while (!isEOF() && !isOperator(delimiter)) {
@@ -520,7 +752,7 @@ public class AnvilParser {
 
     // --- Utility error & recovery functions ---
     /** report the error */
-    private void error(ErrorCode code, int line, int col) {
+    private void raise(ErrorCode code, int line, int col) {
         String msg = code.message();
         throw new ParseException(code, line, col, msg);
         // never recover here because we don't know what kind of recovery
