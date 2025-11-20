@@ -1,3 +1,6 @@
+// anvil-engine/build.gradle.kts
+version = "0.1.2"   // ← YES! This is what adds the version
+
 plugins {
     java
     application
@@ -18,9 +21,11 @@ dependencies {
 }
 
 application {
-    mainClass.set("aurora.engine.AuroraEngine")
+    mainClass.set("dev.badkraft.anvil.engine.AuroraEngine")
 }
 
 tasks.test {
+    // We have no tests yet — don't blow up the build
+    //useJUnitPlatform()                      // if you ever add tests later
     failOnNoDiscoveredTests = false
 }

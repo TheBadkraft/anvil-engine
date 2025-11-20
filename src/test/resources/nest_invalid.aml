@@ -1,9 +1,0 @@
-// src/test/resources/invalid_nesting.aml
-
-test @[type=block] {
-    config := {
-        level1 := {
-            level2 := { invalid := true }
-        }
-    }
-}
