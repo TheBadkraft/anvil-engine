@@ -51,7 +51,10 @@ public enum ErrorCode {
     ASSIGNMENT_NOT_ALLOWED_HERE(4010, "Assignment not valid here"),
     INVALID_ATTRIBUTE_BLOCK(4011, "Invalid attribute block; must be `@[ ... ]`"),
     INVALID_ATTRIBUTE(4012, "The attribute identifier is invalid"),
-    DUPLICATE_ATTRIBUTE_KEY(4013, "Duplicate attribute identifier"),;
+    DUPLICATE_ATTRIBUTE_KEY(4013, "Duplicate attribute identifier"),
+
+    // PARSING FAILED (500x)
+    PARSING_FAILED(5000, "Parsing failed due to previous errors");
 
     private final int code;
     private final String message;

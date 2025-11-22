@@ -12,7 +12,6 @@ import java.util.*;
 
 import static dev.badkraft.anvil.ErrorCode.*;
 import static dev.badkraft.anvil.Operator.QUOTE;
-import static dev.badkraft.anvil.ValueParseResult.failure;
 
 public class AnvilParser {
     static final int MAX_SB_SIZE = 256;
@@ -41,13 +40,13 @@ public class AnvilParser {
     /**
      * Parser entry
      */
-    public static ParseResult<dev.badkraft.anvil.Module> parse(Path path) {
+    public static ParseResult<Module> parse(Path path) {
         try {
             String content = Files.readString(path);
             Dialect hintDialect = Dialect.fromFileExtension(Utils.getFileExtension(path));
             String name = path.getFileName().toString().replaceFirst("[.][^.]+$", "");
             AnvilParser parser = new AnvilParser(hintDialect, name, content);
-            dev.badkraft.anvil.Module module = new dev.badkraft.anvil.Module(name, parser.moduleDialect);
+            Module module = new Module(name, parser.moduleDialect);
             parser.parseSource(module);
 
             return parser.errors.isEmpty()
