@@ -27,6 +27,8 @@ public sealed interface AnvilModule permits ImmutableAnvilModule {
     default AnvilArray  getArray(String key)       { return get(key).asArray(); }
     default AnvilObject getObject(String key)      { return get(key).asObject(); }
     default AnvilTuple  getTuple(String key)       { return get(key).asTuple(); }
+    default AnvilBlob   getBlob(String key)        { return get(key).asBlob(); }
+    default String      getBare(String key)        { return get(key).asBare(); }
 
     //  Metadata
     Path source();          //  Source file path if applicable; null if parsed from string

@@ -1,5 +1,5 @@
 // anvil-engine/build.gradle.kts
-version = "0.1.2"   // ← YES! This is what adds the version
+version = "0.1.3"
 
 plugins {
     java
@@ -17,7 +17,7 @@ repositories {
 }
 
 dependencies {
-    implementation("org.jetbrains:annotations:24.1.0")
+    implementation("org.jetbrains:annotations:24.1.0")// Add this line:
 }
 
 application {
