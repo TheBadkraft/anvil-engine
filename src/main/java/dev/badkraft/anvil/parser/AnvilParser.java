@@ -71,12 +71,26 @@ public class AnvilParser {
     private void parseSource(Module module) {
         //  1. skip whitespace
         skipWhitespace();
-        List<Attribute> moduleAttribs = parseAttributeBlock();
-        if (!moduleAttribs.isEmpty()) {
-            seenModuleAttribs = true;
-            module.addAllAttributes(moduleAttribs);
+//        List<Attribute> moduleAttribs = parseAttributeBlock();
+//        if (!moduleAttribs.isEmpty()) {
+//            seenModuleAttribs = true;
+//            module.addAllAttributes(moduleAttribs);
+//            skipWhitespace();
+//        }
+        // ==== 0.1.4: Allow ANY number of module-level @[ ... ] blocks ====
+        while (is("@[")) {
+            skipWhitespace();
+            List<Attribute> block = parseAttributeBlock();
+            for (Attribute attr : block) {
+                // Duplicate key detection (same semantics we already have inside a block)
+                if (module.attributes().stream().anyMatch(a -> a.key().equals(attr.key()))) {
+                    raise(ErrorCode.DUPLICATE_ATTRIBUTE_KEY, line, col);
+                }
+            }
+            module.addAllAttributes(block);
             skipWhitespace();
         }
+        // =================================================================
         while(!isEOF()) {
             //  2. parseStatement
             List<String> identifiers = new ArrayList<>();
@@ -524,9 +538,16 @@ public class AnvilParser {
             raise(ErrorCode.UNEXPECTED_TOKEN, line, col);
         }
 
-        int start = pos;                     // <-- remember where we started
-        consumeOperator(delimiter);          // consume opening " or `
-
+        int start = -1;
+        // if QUOTE, we want to omit the surrounding quotes
+        if (delimiter == QUOTE) {
+            consumeOperator(delimiter);
+            start = pos;
+        } else {
+            // if BACKTICK, we want to capture the surrounding backticks
+            start = pos;
+            consumeOperator(delimiter);
+        }
         while (!isEOF()) {
             if (isOperator(delimiter) && !isEscaped(pos)) {
                 break;                       // found unescaped closing delimiter
@@ -537,8 +558,15 @@ public class AnvilParser {
         if (!isOperator(delimiter)) {
             raise(delimiter == QUOTE ? UNTERMINATED_STRING : UNTERMINATED_BLOB, line, col);
         }
-        consumeOperator(delimiter);          // consume closing " or `
 
+        if (delimiter == QUOTE) {
+            // for QUOTE, capture up to but not including closing "
+            String content = source.substring(start, pos);
+            consumeOperator(delimiter);      // consume closing "
+            return content;
+        }
+
+        consumeOperator(delimiter);          // consume closing `
         // Return the exact text we just parsed (including delimiters)
         return source.substring(start, pos);
     }

@@ -45,6 +45,7 @@ public final class Module {
     public void addAllAttributes(List<Attribute> moduleAttribs) {
         attributes.addAll(moduleAttribs);
     }
+    public List<Attribute> attributes() { return List.copyOf(attributes); }
 
     /**
         Validates the document structure.

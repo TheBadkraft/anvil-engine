@@ -105,7 +105,15 @@ public class FileTest {
         }
         System.out.println("Module [" + module.namespace() + "] \n   dialect: " + module.dialect());
         System.out.println();
-
+        // Log: MODULE ATTRIBUTES
+        if (!module.attributes().isEmpty()) {
+            System.out.println("Module Attributes:");
+            for (Attribute attr : module.attributes()) {
+                System.out.println("  - " + formatAttribute(attr));
+            }
+            System.out.println();
+        }
+        // Log: STATEMENTS
         if (!module.statements().isEmpty()) {
             System.out.println("Statements:");
             for (Statement stmt : module.statements()) {
@@ -159,12 +167,7 @@ public class FileTest {
             case Value.HexValue n  -> n.source() != null ? n.source() : Long.toString(n.value());
             case Value.LongValue n -> n.source() != null ? n.source() : Long.toString(n.value());
             case Value.DoubleValue d -> d.source() != null ? d.source() : Double.toString(d.value());
-            case Value.StringValue s  -> "\"" + s.value()
-                    .replace("\\", "\\\\")
-                    .replace("\"", "\\\"")
-                    .replace("\n", "\\n")
-                    .replace("\r", "\\r")
-                    .replace("\t", "\\t") + "\"";
+            case Value.StringValue s  -> s.toString();  // don't hide anything
             case Value.BareLiteral b  -> b.id();
             case Value.BlobValue f -> (f.attribute() != null ? "@" + f.attribute() : "@") + f.content();
 

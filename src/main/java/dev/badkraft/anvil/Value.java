@@ -49,7 +49,7 @@ public sealed interface Value permits
     record StringValue(String value) implements Value {  // ← renamed from getValue
         public StringValue { Objects.requireNonNull(value); }
         @Override public @NotNull String toString() {
-            return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+            return value; //.replace("\\", "\\\\").replace("\"", "\\\"");
         }
     }
 

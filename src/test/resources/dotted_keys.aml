@@ -1,0 +1,26 @@
+// dotted_keys.aml
+#!aml
+
+/* Testing dotted key identifiers */
+
+@[version="1.0.0"]
+@[debug=true]
+
+net.minecraft.client.Minecraft @[class] := {
+    obf    := "f_91002_"
+    source := "Minecraft.java"
+}
+
+com.mojang.blaze3d.audio.Channel @[class] := {
+    create @[static] := "()Lcom/mojang/blaze3d/audio/Channel;"
+    play   := "()V"
+    volume := "(F)V"
+}
+
+// Bare ref must still start with a dot
+.default_material := .minecraft:stone
+
+// Leading or trailing dot in a key is illegal
+// .bad.leading := "nope"          # should fail
+// trailing.dot. := "nope"         # should fail
+// ..double := "nope"              # should fail

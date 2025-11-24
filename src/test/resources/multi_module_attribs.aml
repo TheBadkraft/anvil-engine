@@ -1,0 +1,15 @@
+// multi_module_attribs.aml
+#!aml
+
+/* Testing multiple module-level attributes */
+@[version="1.0.0"]
+@[mc_version="1.21.10"]
+@[generated="2025-11-24T11:11:00Z", generator="aurora-mapping-tools/0.3.0"]
+@[source="mojang-official-proguard"]
+@[license="https://account.mojang.com/documents/minecraft_eula"]
+@[debug=true, experimental]
+
+mc_client @[class] := {
+    obf    := "f_91002_"
+    source := "Minecraft.java"
+}
