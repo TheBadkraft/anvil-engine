@@ -7,8 +7,8 @@ import java.util.Objects;
 /**
  * A single attribute attached to a statement.
  * <ul>
- *   <li>Tag form:   {@code debug}</li>
- *   <li>K-V form:   {@code type=block}</li>
+ *   <li>Tag form:   @[code debug}</li>
+ *   <li>K-V form:   @{code type=block}</li>
  * </ul>
  * The value, when present, is **not** a nested construct – only a literal (string, number, boolean, null).
  */

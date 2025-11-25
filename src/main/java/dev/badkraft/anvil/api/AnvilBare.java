@@ -10,6 +10,7 @@ public record AnvilBare(String id) implements AnvilValue {
     @Override public boolean isTuple()    { return false; }
     @Override public boolean isBlob()     { return false; }
     @Override public boolean isBare()     { return true; }
+    @Override public boolean isAttribute() { return false; }
 
     @Override public String asBare() { return id; }
     @Override public String asString() { return id; }
@@ -21,4 +22,5 @@ public record AnvilBare(String id) implements AnvilValue {
     @Override public AnvilObject asObject() throws ClassCastException { throw ERR; }
     @Override public AnvilTuple asTuple() throws ClassCastException { throw ERR; }
     @Override public AnvilBlob asBlob() throws ClassCastException { throw ERR; }
+    @Override public AnvilAttribute asAttribute() throws ClassCastException { throw ERR; }
 }

@@ -1,10 +1,11 @@
 // src/main/java/dev/badkraft/anvil/api/AnvilValue.java
 package dev.badkraft.anvil.api;
 
-@SuppressWarnings({"ClassEscapesDefinedScope", "unused"})
+@SuppressWarnings({"unused"})
 public sealed interface AnvilValue
         permits AnvilNull, AnvilBoolean, AnvilNumeric, AnvilString,
-        AnvilArray, AnvilObject, AnvilTuple, AnvilBlob, AnvilBare {
+        AnvilArray, AnvilObject, AnvilTuple, AnvilBlob, AnvilBare,
+        AnvilAttribute {
 
     // === Type checks ===
     boolean isNull();
@@ -16,6 +17,7 @@ public sealed interface AnvilValue
     boolean isTuple();
     boolean isBlob();
     boolean isBare();
+    boolean isAttribute();
 
     // === Coercion (throws ClassCastException on mismatch) ===
     String      asString()   throws ClassCastException;
@@ -27,6 +29,7 @@ public sealed interface AnvilValue
     AnvilTuple  asTuple()    throws ClassCastException;
     AnvilBlob   asBlob()     throws ClassCastException;
     String asBare()     throws ClassCastException;
+    AnvilAttribute asAttribute() throws ClassCastException;
 
     // === Safe defaults ===
     default String   asString(String def)     { try { return asString(); }   catch (Exception e) { return def; } }

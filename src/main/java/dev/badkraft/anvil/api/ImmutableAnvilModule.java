@@ -1,8 +1,10 @@
 package dev.badkraft.anvil.api;
 
+import dev.badkraft.anvil.Attribute;
 import dev.badkraft.anvil.Module;
 
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -13,21 +15,25 @@ public final class ImmutableAnvilModule implements AnvilModule {
     private final String namespace;
     private final Set<String> keys;
     private final Map<String, AnvilValue> inMemoryFields;
+    private final List<AnvilAttribute> attributes;
 
     public ImmutableAnvilModule(Module delegate, Path source) {
-        this(delegate, source, null);
+        this(delegate, source,
+                null,
+                AnvilValueAdapter.adapt(delegate.attributes()));
     }
-    public ImmutableAnvilModule(Map<String, AnvilValue> inMemoryFields) {
-        this(null, null, inMemoryFields);
+    public ImmutableAnvilModule(Map<String, AnvilValue> inMemoryFields, List<AnvilAttribute> attributes) {
+        this(null, null, inMemoryFields, attributes);
     }
 
-    ImmutableAnvilModule(Module delegate, Path source, Map<String, AnvilValue> inMemoryFields) {
+    ImmutableAnvilModule(Module delegate, Path source, Map<String, AnvilValue> inMemoryFields, List<AnvilAttribute> attributes) {
         this.delegate = delegate;
         this.source = source;
         this.namespace = source != null
                 ? source.getFileName().toString().replaceFirst("\\.[^.]+$", "")
                 : "<string>";
         this.inMemoryFields = inMemoryFields != null ? Map.copyOf(inMemoryFields) : null;
+        this.attributes = attributes;
         this.keys = inMemoryFields != null
                 ? Set.copyOf(inMemoryFields.keySet())
                 : Set.copyOf(delegate.exportedIdentifiers());
@@ -60,6 +66,13 @@ public final class ImmutableAnvilModule implements AnvilModule {
     }
 
     @Override
+    public AnvilAttribute getAttribute(String key) {
+        return attributes.stream()
+                .filter(attr -> attr.key().id().equals(key))
+                .findFirst().orElse(null);
+    }
+
+    @Override
     public Set<String> keys() {
         return keys;
     }
@@ -78,5 +91,10 @@ public final class ImmutableAnvilModule implements AnvilModule {
     public String asFormattedString() {
         // TODO: wire up pretty printer later — for now, simple debug view
         return String.format("AnvilModule[%s] { keys: %s }", namespace, keys);
+    }
+
+    @Override
+    public List<AnvilAttribute> attributes() {
+        return attributes;
     }
 }

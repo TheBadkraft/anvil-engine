@@ -1,0 +1,16 @@
+// nested_attribution.aml
+#!aml
+
+@[version="1.0.0"]
+@[feature="nested-attribution"]
+
+player @[entity, living] := {
+ // name     @[required, unique] := "Steve"     ** Invalid: attribute on value
+    position @[dim=overworld]   := (0, 64, 0)
+    inventory @[max=36]         := [
+        // the elements inside the array cannot have attributes
+        minecraft:iron_sword,
+        minecraft:shield
+    ]
+    tags     @[deprecated]      := ("old", "legacy")
+}

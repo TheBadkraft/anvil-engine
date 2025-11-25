@@ -2,12 +2,13 @@ package dev.badkraft.anvil.api;
 
 import java.util.List;
 
-public record AnvilArray(List<AnvilValue> elements) implements AnvilValue {
+public record AnvilArray(List<AnvilValue> elements, List<AnvilAttribute> attributes) implements AnvilValue {
     public AnvilArray { elements = List.copyOf(elements); }
 
     public AnvilValue get(int index) {
         return elements.get(index);
     }
+
     public String      getString(int index)   { return get(index).asString(); }
     public long        getLong(int index)     { return get(index).asLong(); }
     public double      getDouble(int index)   { return get(index).asDouble(); }
@@ -17,6 +18,7 @@ public record AnvilArray(List<AnvilValue> elements) implements AnvilValue {
     public AnvilTuple  getTuple(int index)    { return get(index).asTuple(); }
     public AnvilBlob   getBlob(int index)     { return get(index).asBlob(); }
     public String      getBare(int index)     { return get(index).asBare(); }
+    public boolean hasAttribute(String attrib) { return attributes.stream().anyMatch(a -> a.key().id().equals(attrib)); }
 
     public int size() { return elements.size(); }
     public boolean isEmpty() { return elements.isEmpty(); }
@@ -30,6 +32,7 @@ public record AnvilArray(List<AnvilValue> elements) implements AnvilValue {
     @Override public boolean isTuple()    { return false; }
     @Override public boolean isBlob()     { return false; }
     @Override public boolean isBare()     { return false; }
+    @Override public boolean isAttribute() {return false;}
 
     @Override public AnvilArray asArray() { return this; }
     @Override public String asString() { return elements.toString(); }
@@ -41,4 +44,5 @@ public record AnvilArray(List<AnvilValue> elements) implements AnvilValue {
     @Override public AnvilTuple asTuple() throws ClassCastException { throw ERR; }
     @Override public AnvilBlob asBlob() throws ClassCastException { throw ERR; }
     @Override public String asBare() throws ClassCastException { throw ERR; }
+    @Override public AnvilAttribute asAttribute() throws ClassCastException {throw ERR;}
 }

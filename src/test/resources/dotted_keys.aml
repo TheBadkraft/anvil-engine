@@ -12,13 +12,13 @@ net.minecraft.client.Minecraft @[class] := {
 }
 
 com.mojang.blaze3d.audio.Channel @[class] := {
-    create @[static] := "()Lcom/mojang/blaze3d/audio/Channel;"
+    create := "()Lcom/mojang/blaze3d/audio/Channel;"
     play   := "()V"
     volume := "(F)V"
 }
 
 // Bare ref must still start with a dot
-.default_material := .minecraft:stone
+// .default_material := .minecraft:stone
 
 // Leading or trailing dot in a key is illegal
 // .bad.leading := "nope"          # should fail

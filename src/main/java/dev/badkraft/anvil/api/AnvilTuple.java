@@ -2,7 +2,7 @@ package dev.badkraft.anvil.api;
 
 import java.util.List;
 
-public record AnvilTuple(List<AnvilValue> elements) implements AnvilValue {
+public record AnvilTuple(List<AnvilValue> elements, List<AnvilAttribute> attributes) implements AnvilValue {
     public AnvilTuple { elements = List.copyOf(elements); }
 
     public AnvilValue get(int index) {
@@ -18,6 +18,7 @@ public record AnvilTuple(List<AnvilValue> elements) implements AnvilValue {
     public AnvilTuple  getTuple(int index)    { return get(index).asTuple(); }
     public AnvilBlob   getBlob(int index)     { return get(index).asBlob(); }
     public String      getBare(int index)     { return get(index).asBare(); }
+    public boolean hasAttribute(String attrib) { return attributes.stream().anyMatch(a -> a.key().id().equals(attrib)); }
 
     public int size() { return elements.size(); }
 
@@ -30,6 +31,8 @@ public record AnvilTuple(List<AnvilValue> elements) implements AnvilValue {
     @Override public boolean isTuple()    { return true; }
     @Override public boolean isBlob()     { return false; }
     @Override public boolean isBare()     { return false; }
+    @Override public boolean isAttribute() { return false; }
+
     @Override public AnvilTuple asTuple() { return this; }
     @Override public String asString() { return elements.toString(); }
     private static final ClassCastException ERR = new ClassCastException("Cannot convert tuple to scalar or other composite");
@@ -40,4 +43,5 @@ public record AnvilTuple(List<AnvilValue> elements) implements AnvilValue {
     @Override public AnvilObject asObject() throws ClassCastException { throw ERR; }
     @Override public AnvilBlob asBlob() throws ClassCastException { throw ERR; }
     @Override public String asBare() throws ClassCastException { throw ERR; }
+    @Override public AnvilAttribute asAttribute() throws ClassCastException { throw ERR; }
 }

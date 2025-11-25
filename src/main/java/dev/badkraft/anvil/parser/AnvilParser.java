@@ -71,12 +71,6 @@ public class AnvilParser {
     private void parseSource(Module module) {
         //  1. skip whitespace
         skipWhitespace();
-//        List<Attribute> moduleAttribs = parseAttributeBlock();
-//        if (!moduleAttribs.isEmpty()) {
-//            seenModuleAttribs = true;
-//            module.addAllAttributes(moduleAttribs);
-//            skipWhitespace();
-//        }
         // ==== 0.1.4: Allow ANY number of module-level @[ ... ] blocks ====
         while (is("@[")) {
             skipWhitespace();
@@ -101,16 +95,15 @@ public class AnvilParser {
         module.markParsed();
     }
     private Statement parseStatement(List<String> identifiers) {
-        //  do not expect module attribs here
+        //  do not expect module attributes here
         if (!seenModuleAttribs && readChars(attribMarker) != 0) {
             raise(ErrorCode.UNEXPECTED_MODULE_ATTRIBUTES, line, col);
         }
         //  1. Expect an identifier
-        int idLen = readIdentifier();
-        if (idLen == 0) {
+        String id = readIdentifier();
+        if (id.isEmpty()) {
             raise(ErrorCode.EXPECTED_IDENTIFIER, line, col);
         }
-        String id = take(idLen);
         skipWhitespace();
         //  2. Look for attributes
         List<Attribute> attributes = parseAttributeBlock();
@@ -124,6 +117,10 @@ public class AnvilParser {
         skipWhitespace();
         //  4. Expect value
         Value value = parseValue();
+        if(!attributes.isEmpty()) {
+            value.getAttributes().addAll(attributes);
+        }
+
         skipWhitespace();
         //  5. Expect Operator.COMMA, NL, or EOF
         int termLen = readOperator(Operator.COMMA);
@@ -189,20 +186,24 @@ public class AnvilParser {
 
         List<Map.Entry<String, Value>> fields = new ArrayList<>();
         Set<String> seen = new HashSet<>();
-        skipWhitespace();
+        List<Attribute> attributes = List.of();
 
+        skipWhitespace();
         if (isOperator(Operator.R_BRACE)) {
             raise(ErrorCode.EMPTY_OBJECT_NOT_ALLOWED, line, col);
         }
 
         while (!isOperator(Operator.R_BRACE)) {
-            int keyLen = readIdentifier();
-            if (keyLen == 0) raise(ErrorCode.EXPECTED_IDENTIFIER, line, col);
-            String key = take(keyLen);
-
+            String key = readIdentifier();
+            if (key.isEmpty()) raise(ErrorCode.EXPECTED_IDENTIFIER, line, col);
             if (!seen.add(key)) {
                 raise(ErrorCode.DUPLICATE_FIELD_IN_OBJECT, line, col);
             }
+            skipWhitespace();
+
+            // check for attributes
+            attributes = parseAttributeBlock();
+            skipWhitespace();
 
             skipWhitespace();
             if (!isOperator(Operator.ASSIGN)) raise(ErrorCode.EXPECTED_ASSIGN, line, col);
@@ -211,6 +212,10 @@ public class AnvilParser {
 
             Value value = parseValue();
             fields.add(Map.entry(key, value));
+            if(!attributes.isEmpty()) {
+                value.getAttributes().addAll(attributes);
+                attributes = List.of(); // reset for next field
+            }
 
             skipWhitespace();
             if (isOperator(Operator.COMMA)) {
@@ -222,17 +227,14 @@ public class AnvilParser {
         consumeOperator(Operator.R_BRACE);
 
         String fullSource = source.substring(start, pos);
-        return new Value.ObjectValue(fields, fullSource);
+        return new Value.ObjectValue(fields, attributes, fullSource);
     }
     private Value parseArray() {
         int start = pos;
         consumeOperator(Operator.L_BRACKET); // [
 
         List<Value> elements = new ArrayList<>();
-
         skipWhitespace();
-
-        // Disallow empty array []
         if (isOperator(Operator.R_BRACKET)) {
             raise(ErrorCode.EMPTY_ARRAY_NOT_ALLOWED, line, col);
         }
@@ -262,9 +264,7 @@ public class AnvilParser {
         consumeOperator(Operator.L_PAREN); // (
 
         List<Value> elements = new ArrayList<>();
-
         skipWhitespace();
-
         // Disallow empty tuple ()
         if (isOperator(Operator.R_PAREN)) {
             raise(ErrorCode.EMPTY_TUPLE_ELEMENT, line, col);
@@ -322,10 +322,8 @@ public class AnvilParser {
 
         while (!is("]")) {
             // Key — identifier only
-            int keyLen = readIdentifier();
-            if (keyLen == 0) raise(ErrorCode.INVALID_ATTRIBUTE, line, col);
-            String key = take(keyLen);
-
+            String key = readIdentifier();
+            if (key.isEmpty()) raise(ErrorCode.INVALID_ATTRIBUTE, line, col);
             if (!seen.add(key)) {
                 raise(ErrorCode.DUPLICATE_ATTRIBUTE_KEY, line, col);
             }
@@ -515,12 +513,9 @@ public class AnvilParser {
         if (hasAttribute) {
             attrStart = pos;
             consume(1);                         // @
-            int len = readIdentifier();
-            if (len > 0) {
-                attribute = take(len);
-                if (KEYWORDS.contains(attribute))
-                    raise(ATTRIBUTE_IS_KEYWORD, line, col);
-            }
+            attribute = readIdentifier();
+            if (KEYWORDS.contains(attribute))
+                raise(ATTRIBUTE_IS_KEYWORD, line, col);
         }
 
         String blobSource = parseContent(Operator.BACKTICK);   // includes the backticks
@@ -617,12 +612,35 @@ public class AnvilParser {
         for (int i = pos - 1; i >= 0 && source.charAt(i) == '\\'; i--) backslashes++;
         return backslashes % 2 == 1;
     }
-    private int readIdentifier() {
-        int len = 0;
-        if (!isEOF() && isAlpha(peek())) {
-            while (!isEOF() && isAlphaNumeric(peek(len))) len++;
+    private String readIdentifier() {
+        int start = pos;
+        boolean first = true;
+        while (!isEOF()) {
+            char c = peek();
+            if (first) {
+                if (!isIdentifierStart(c)) break;
+            } else {
+                if (!isIdentifierPart(c)) break;
+            }
+            consume();
+            first = false;
         }
-        return len;
+        String id = source.substring(start, pos);
+        if (id.isEmpty()) raise(EXPECTED_IDENTIFIER, line, col);
+        if (KEYWORDS.contains(id)) raise(IDENTIFIER_IS_KEYWORD, line, col);
+
+        // Disallow leading or trailing dot (those are bare references)
+        // Disallow double dots – they are never legal in a key
+        if (id.startsWith(".") || id.endsWith(".") || id.contains("..")) {
+            raise(ErrorCode.INVALID_IDENTIFIER, line, col);
+        }
+        return id;
+    }
+    private static boolean isIdentifierStart(char c) {
+        return Character.isLetter(c) || c == '_';
+    }
+    private static boolean isIdentifierPart(char c) {
+        return Character.isLetterOrDigit(c) || c == '_' || c == '.';
     }
     private String readBareLiteral() {
         int length = 0;

@@ -1,5 +1,7 @@
 package dev.badkraft.anvil.api;
 
+import org.w3c.dom.Element;
+
 import java.util.Optional;
 
 public record AnvilObject(AnvilModule object) implements AnvilValue {
@@ -18,6 +20,7 @@ public record AnvilObject(AnvilModule object) implements AnvilValue {
     public Optional<String> tryString(String key)  { return object.tryGet(key).map(AnvilValue::asString); }
     public Optional<Long>        tryLong(String key)    { return object.tryGet(key).map(AnvilValue::asLong); }
     public Optional<AnvilObject> tryObject(String key)  { return object.tryGet(key).filter(AnvilValue::isObject).map(AnvilValue::asObject); }
+    public boolean hasAttribute(String attrib) { return object.attributes().stream().anyMatch(a -> a.key().id().equals(attrib)); }
 
     @Override public boolean isNull()     { return false; }
     @Override public boolean isBoolean()  { return false; }
@@ -28,6 +31,7 @@ public record AnvilObject(AnvilModule object) implements AnvilValue {
     @Override public boolean isTuple()    { return false; }
     @Override public boolean isBlob()     { return false; }
     @Override public boolean isBare()     { return false; }
+    @Override public boolean isAttribute() {return false;}
 
     @Override public AnvilObject asObject() { return this; }
     @Override public String asString() { return object.toString(); }
@@ -39,4 +43,6 @@ public record AnvilObject(AnvilModule object) implements AnvilValue {
     @Override public AnvilTuple asTuple() throws ClassCastException { throw ERR; }
     @Override public AnvilBlob asBlob() throws ClassCastException { throw ERR; }
     @Override public String asBare() throws ClassCastException { throw ERR; }
+    @Override public AnvilAttribute asAttribute() throws ClassCastException {throw ERR;}
+
 }

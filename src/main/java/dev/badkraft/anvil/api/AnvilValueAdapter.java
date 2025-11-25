@@ -1,10 +1,10 @@
 package dev.badkraft.anvil.api;
 
+import dev.badkraft.anvil.Attribute;
 import dev.badkraft.anvil.Value;
 
-import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 public final class AnvilValueAdapter {
@@ -12,6 +12,9 @@ public final class AnvilValueAdapter {
     private AnvilValueAdapter() {}
 
     static AnvilValue adapt(Value value) {
+        if (value == null) {
+            return new AnvilNull();
+        }
         return switch (value) {
             case Value.NullValue ignored -> new AnvilNull();
             case Value.BooleanValue b -> new AnvilBoolean(b.value());
@@ -25,12 +28,22 @@ public final class AnvilValueAdapter {
             case Value.ArrayValue arr -> new AnvilArray(
                     arr.elements().stream()
                             .map(AnvilValueAdapter::adapt)
+                            .toList(),
+                    arr.attributes().stream()
+                            .map(attr -> new AnvilAttribute(
+                                    Map.entry(new AnvilBare(attr.key()), adapt(attr.value()))
+                            ))
                             .toList()
             );
 
             case Value.TupleValue tup -> new AnvilTuple(
                     tup.elements().stream()
                             .map(AnvilValueAdapter::adapt)
+                            .toList(),
+                    tup.attributes().stream()
+                            .map(attr -> new AnvilAttribute(
+                                    Map.entry(new AnvilBare(attr.key()), adapt(attr.value()))
+                            ))
                             .toList()
             );
 
@@ -40,12 +53,23 @@ public final class AnvilValueAdapter {
                                 Map.Entry::getKey,
                                 e -> adapt(e.getValue())
                         ));
-
-                AnvilModule nested = new ImmutableAnvilModule(fields);
+                List<AnvilAttribute> attributes = obj.attributes().stream()
+                        .map(attr -> new AnvilAttribute(
+                                Map.entry(new AnvilBare(attr.key()), adapt(attr.value()))
+                        ))
+                        .toList();
+                AnvilModule nested = new ImmutableAnvilModule(fields, attributes);
                 yield new AnvilObject(nested);
             }
 
             default -> throw new IllegalStateException("Unknown Value type: " + value.getClass());
         };
+    }
+    static List<AnvilAttribute> adapt(List<Attribute> attributes) {
+        return attributes.stream()
+                .map(attr -> new AnvilAttribute(
+                        Map.entry(new AnvilBare(attr.key()), adapt(attr.value()))
+                ))
+                .toList();
     }
 }

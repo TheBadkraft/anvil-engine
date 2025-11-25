@@ -12,6 +12,7 @@ public record AnvilBlob(String content, String attribute) implements AnvilValue 
     @Override public boolean isTuple()    { return false; }
     @Override public boolean isBlob()     { return true; }
     @Override public boolean isBare()     { return false; }
+    @Override public boolean isAttribute() { return false; }
 
     @Override public AnvilBlob asBlob() { return this; }
     @Override public String asString() { return (attribute != null ? "@" + attribute : "") + content; }
@@ -23,4 +24,5 @@ public record AnvilBlob(String content, String attribute) implements AnvilValue 
     @Override public AnvilObject asObject() throws ClassCastException { throw ERR; }
     @Override public AnvilTuple asTuple() throws ClassCastException { throw ERR; }
     @Override public String asBare() throws ClassCastException { throw ERR; }
+    @Override public AnvilAttribute asAttribute() throws ClassCastException { throw ERR; }
 }

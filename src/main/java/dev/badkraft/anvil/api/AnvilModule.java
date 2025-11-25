@@ -1,6 +1,7 @@
 package dev.badkraft.anvil.api;
 
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -15,7 +16,12 @@ public sealed interface AnvilModule permits ImmutableAnvilModule {
         //  up to the consumer to evaluate the return
         return !contains(key) ? Optional.empty() : Optional.of(get(key));
     }
-
+    AnvilAttribute getAttribute(String key);  // throws NoSuchKeyException
+    default Optional<AnvilAttribute> tryGetAttribute(AnvilBare key) {
+        return attributes().stream().noneMatch(attr -> attr.key() == key)
+                ? Optional.empty()
+                : Optional.of(getAttribute(key.id()));
+    }
     Set<String> keys();
     default boolean contains(String key) { return keys().contains(key); }
 
@@ -36,6 +42,8 @@ public sealed interface AnvilModule permits ImmutableAnvilModule {
 
     //  Debug / serialization
     String asFormattedString();
+
+    List<AnvilAttribute> attributes();
 
     //  Future extension points (not yet implemented)
     //  - interface Mutable extends AnvilModule { ... }

@@ -6,6 +6,7 @@ import dev.badkraft.anvil.Module;
 import dev.badkraft.anvil.parser.AnvilParser;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
@@ -13,39 +14,67 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class AnvilApiTest {
-
+    /*
+            API tests go through the Anvil API (anvil.api.Anvil) to parse AML files.
+            Do not use AnvilParser directly here, as that bypasses the API layer.
+     */
     private static final Path TEST_RESOURCES = Paths.get("src/test/resources");
 
     @Test
-    void parsesMultipleModuleAttributesCorrectly() {
+    void parsesMultipleModuleAttributesCorrectly() throws IOException {
         Path path = TEST_RESOURCES.resolve("multi_module_attribs.aml");
-        ParseResult<Module> result = AnvilParser.parse(path);
+        AnvilModule module = Anvil.parse(path);
 
-        assertTrue(result.isSuccess(), "Parse should succeed without errors");
-        Module module = result.result();
-
-        // Dialect check
-        assertEquals(Dialect.AML, module.dialect());
+        assertNotNull(module, "Module should be parsed successfully");
 
         // Attributes merged and ordered
-        List<Attribute> attrs = module.attributes();
-        assertEquals(8, attrs.size());
+        assertEquals(8, module.attributes().size());
 
         // Spot-check values (using API access)
-        assertEquals("version", attrs.get(0).key());
-        assertInstanceOf(Value.StringValue.class, attrs.get(0).value());
-        assertEquals("1.0.0", ((Value.StringValue) attrs.get(0).value()).value());
-
-        assertEquals("debug", attrs.get(6).key());
-        assertInstanceOf(Value.BooleanValue.class, attrs.get(6).value());
-        assertTrue(((Value.BooleanValue) attrs.get(6).value()).value());
-
-        assertEquals("experimental", attrs.get(7).key());
-        assertNull(attrs.get(7).value());  // tag form
+        assertEquals("1.0.0", module.getAttribute("version").value().asString());
+        assertEquals("1.21.10", module.getAttribute("mc_version").value().asString());
+        assertTrue(module.getAttribute("debug").value().asBoolean());
 
         // Duplicate rejection: Manual test by editing source to duplicate a key → expect failure
         // (Add your own failure case file if needed)
     }
 
-    // Add more tests here for other features as we go
+    @Test
+    void dottedKeys_areParsedCorrectly() throws IOException {
+        var path = Paths.get("src/test/resources/dotted_keys.aml");
+        AnvilModule module = Anvil.parse(path);
+
+        assertNotNull(module, "Module should be parsed successfully");
+
+        assertTrue(module.contains("net.minecraft.client.Minecraft"));
+        assertTrue(module.contains("com.mojang.blaze3d.audio.Channel"));
+
+        // Not supported in API yet:
+//        Assignment bare = (Assignment) stmts.get(2);
+//        assertEquals(".default_material", bare.identifier());
+//        assertInstanceOf(Value.BareLiteral.class, bare.value());
+//        assertEquals(".minecraft:stone", ((Value.BareLiteral) bare.value()).id());
+    }
+
+    @Test
+    void nestedAttribution_onlyOnObjectFields() throws IOException {
+        var path = Paths.get("src/test/resources/nested_attribution.aml");
+
+        AnvilModule module = Anvil.parse(path);
+
+        assertNotNull(module, "Module should be parsed successfully");
+        var player = module.getObject("player");
+
+        assertInstanceOf(AnvilTuple.class, player.getTuple("position"));
+        assertTrue(player.getTuple("position").hasAttribute("dim"));
+        assertTrue(player.getArray("inventory").hasAttribute("max"));
+
+        // position has attributes → value is tuple → should be REJECTED
+//        var position = ;
+//        var positionField = player.fields().stream()
+//                .filter(e -> e.getKey().equals("position"))
+//                .findFirst().orElseThrow();
+
+
+    }
 }
