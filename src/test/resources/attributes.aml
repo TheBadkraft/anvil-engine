@@ -6,54 +6,24 @@
 // module attributes
 @[version=0.1, build=2, author="Anvil Tester", log=true]
 
-// 1. Tag-only (most common)
-stone @[mineable] := "stone"
-dirt @[mineable, needs_shovel] := "dirt"
+// 1. Object
+mod @[version="1.0.0", mc_version="1.21.10"] := {
+    // module with attributes
+    name := "Test Module"
+    description := "A module to test attributes"
+    bonus_items @[rarity="legendary", count=3] := [
+        minecraft:diamond_sword,
+        minecraft:enchanted_golden_apple
+    ]
+}
 
-// 2. With literal values
-gold_block @[hardness=3.0] := "gold_block"
-diamond_ore @[hardness=3.0, resistance=3.0, light=0] := "diamond_ore"
-beacon @[light=15, range=50] := "beacon"
+// 2. Array
+blocks @[mineable] := [
+    minecraft:stone,
+    minecraft:dirt,
+    minecraft:grass_block,
+    minecraft:iron_ore,
+]
 
-// 3. Boolean values
-debug_mode @[enabled=true] := true
-feature_flag @[beta=false] := false
-
-// 4. String values
-sign @[text="Welcome", color="dark_red"] := "oak_sign"
-book @[title="Diary", author="Notch"] := "written_book"
-
-// 5. Null values
-optional_feature @[config=null] := null
-
-// 6. Mixed types in same block
-player_spawn @[x=0, y=64, z=0, world="overworld", safe=true] := "spawn"
-
-// 7. Multiple attributes (comma-separated or not)
-chest @[container, loot_table="chests/village", locked=true] := "chest"
-furnace @[lit=false, burn_time=0] := "furnace"
-
-// 8. Bare literal values in attributes (allowed!)
-cobblestone @[drop=cobblestone] := "cobblestone"
-
-// 9. Negative numbers
-offset @[dx=-5, dy=10, dz=0] := "offset_marker"
-
-// 10. Scientific notation
-gravity @[force=9.81e-3] := "gravity_well"
-
-// 11. Edge cases — all valid
-minimal @[tag] := "minimal"
-with_spaces @[  space_before = true, after_space  =false ] := "spacing"
-trailing_comma @[a=1, b=2, ] := "trailing_ok"
-
-// 12. INVALID — these should be rejected by parser (for manual testing)
-// Uncomment one at a time to verify error reporting
-
-// invalid_container @[items=[stone, dirt]] := "bad"           // ← object in attr
-// invalid_array @[tags=["mineable", "stone"]] := "bad"        // ← array in attr
-// invalid_tuple @[pos=(0,64,0)] := "bad"                      // ← tuple in attr
-// invalid_blob @[shader=@glsl`...`] := "bad"                  // ← blob in attr
-// nested_attr @[outer=[inner=value]] := "bad"                 // ← nested attr
-// missing_equals @[key] := "bad"                              // ← ok if tag-only
-// empty_attr @[] := "bad"                                     // ← syntax error
+// 3. Tuple
+coordinates @[dimension="overworld", biome="plains"] := (100, 64, -200)
