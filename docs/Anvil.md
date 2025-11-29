@@ -23,7 +23,7 @@
 ```
 #!aml
 
-@[module=attributes]?          # optional module-level attributes (first non-whitespace after shebang)
+@[context=attributes]?          # optional context-level attributes (first non-whitespace after shebang)
 <identifier> @[attributes]? := value
 ```
 
@@ -60,7 +60,7 @@ bare_ref          → "." ID ( "." | ":" ID )*
 @[type=block, mod=vanilla, debug=true]
 ```
 
-- Optional on module level, top-level statements, objects, arrays, or before blobs  
+- Optional on context level, top-level statements, objects, arrays, or before blobs  
 - Same syntax everywhere: `@[key, key=value, …]`  
 - Keys are identifiers; values are simple literals only (no objects/arrays/blobs)  
 - Pure metadata – parser never interprets  
@@ -69,7 +69,7 @@ bare_ref          → "." ID ( "." | ":" ID )*
 ### 2.5 Module-Level Attributes
 
 - Appear immediately after the shebang (or at file start if no shebang)  
-- Only one module-level attribute block allowed  
+- Only one context-level attribute block allowed  
 - Follows identical syntax and rules as statement-level attributes
 
 Example:
@@ -93,11 +93,11 @@ vars {
 }
 ```
 
-- Must be the first non-shebang, non-module-attribute statement  
+- Must be the first non-shebang, non-context-attribute statement  
 - Flat key → value map  
 - Uses `=` (not `:=`)  
 - Values may be any literal type, including bare references  
-- Visible to all subsequent statements and interpolations in the same module
+- Visible to all subsequent statements and interpolations in the same context
 
 ### 2.7 Deferred Resolution
 
@@ -111,7 +111,7 @@ Set to `true` when the value is:
 - a Bare Reference (starts with `.`)  
 - an interpolated string/blob containing `${...}`
 
-Parser never resolves – consumer replaces values from `module.vars` at load time.
+Parser never resolves – consumer replaces values from `context.vars` at load time.
 
 ## 3. Inheritance
 
@@ -162,7 +162,7 @@ Shebang overrides extension.
 | Rename Aurora → Anvil                      | Yes  | Yes         |
 | All base value types (num, bool, str, blob, null, obj, arr, tuple) | Yes  | Yes         |
 | Bare reference values (`.key`)             | Yes  |             |
-| `vars` block – top, flat, module-scoped    | Yes  |             |
+| `vars` block – top, flat, context-scoped    | Yes  |             |
 | Interpolation `$"...${key}..."` + blob     | Yes  |             |
 | `Statement.needsResolution` flag           | Yes  |             |
 | Module-level attributes `@[ … ]`           | Yes  | Yes         |

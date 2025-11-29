@@ -3,14 +3,14 @@
 
 // exhaustive attribute test suite
 
-// module attributes
+// context attributes
 @[version=0.1, build=2, author="Anvil Tester", log=true]
 
 // 1. Object
 mod @[version="1.0.0", mc_version="1.21.10"] := {
-    // module with attributes
+    // context with attributes
     name := "Test Module"
-    description := "A module to test attributes"
+    description := "A context to test attributes"
     bonus_items @[rarity="legendary", count=3] := [
         minecraft:diamond_sword,
         minecraft:enchanted_golden_apple

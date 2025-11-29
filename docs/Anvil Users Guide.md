@@ -24,21 +24,21 @@ Hold on to whatever you have because data parsing just got insanely fast ...
 ### The Entire Public API (now perfect)
 
 ```java
-AnvilModule module = Anvil.parse(Paths.get("config.aml"));
+AnvilModule context = Anvil.parse(Paths.get("config.aml"));
 ```
 
-#### Top-level module
+#### Top-level context
 ```java
-module.getString("motd")
-module.getLong("port")
-module.getObject("auth")
-module.getArray("admins")
-module.getTuple("spawn")
+context.getString("motd")
+context.getLong("port")
+context.getObject("auth")
+context.getArray("admins")
+context.getTuple("spawn")
 ```
 
 #### Nested objects — natural, fluent, beautiful
 ```java
-AnvilObject auth = module.getObject("auth");
+AnvilObject auth = context.getObject("auth");
 String token   = auth.getString("access_token");
 String user    = auth.getString("username");
 ```
@@ -82,8 +82,8 @@ Safe versions via `tryGet(...)` → `Optional<AnvilValue>`
 ### Real-world example (the one that ended the debate)
 
 ```java
-AnvilModule module = Anvil.parse(path);
-AnvilObject fancy  = module.getObject("fancy");
+AnvilModule context = Anvil.parse(path);
+AnvilObject fancy  = context.getObject("fancy");
 
 String name        = fancy.getString("name");                    // "Fancy Block"
 String texture     = fancy.getObject("textures").getString("all"); // "block/gold_block"

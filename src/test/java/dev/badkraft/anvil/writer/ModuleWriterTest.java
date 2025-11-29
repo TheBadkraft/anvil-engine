@@ -1,17 +1,16 @@
 // src/test/java/aurora/engine/writer/ModuleWriterTest.java
 package dev.badkraft.anvil.writer;
 
+import dev.badkraft.anvil.core.api.Context;
 import dev.badkraft.anvil.parser.AnvilParser;
-import dev.badkraft.anvil.Module;
-import dev.badkraft.anvil.ParseResult;
-import dev.badkraft.anvil.writer.ModuleWriter;
+import dev.badkraft.anvil.parser.ParseResult;
 
 import java.nio.file.*;
 import java.io.IOException;
 import java.util.stream.Collectors;
 
 public class ModuleWriterTest {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
         String filePath = args.length > 0 ? args[0] : "build/resources/test/attribs.aml";
         Path path = Paths.get(filePath);
 
@@ -23,21 +22,24 @@ public class ModuleWriterTest {
         System.out.println("=== ModuleWriter Round-Trip Test ===");
         System.out.println("Input: " + path);
 
-        ParseResult<Module> result = AnvilParser.parse(path);
+        Context context = Context.builder()
+                .source(path)
+                .build();
+        AnvilParser.parse(context);
+        boolean success = context.isParsed();
 
-        if (!result.isSuccess()) {
+        if (!success) {
             System.err.println("Parse failed:");
-            result.errors().forEach(e -> System.err.printf("  [%d:%d] %s%n", e.line(), e.col(), e.message()));
+            System.err.printf("  [%d:%d]", context.source().line(), context.source().column());
             return;
         }
 
-        Module module = result.result();
-        if (!module.isValid()) {
+        if (!context.isValid()) {
             System.err.println("Module is invalid (duplicate keys/ids)");
             return;
         }
 
-        String written = new ModuleWriter(true).write(module);
+        String written = new ModuleWriter(true).write(context);
         System.out.println("\n--- Pretty Print Output ---");
         System.out.println(written);
         System.out.println("\n--- Normalized Comparison ---");

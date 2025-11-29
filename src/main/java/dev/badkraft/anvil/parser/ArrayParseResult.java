@@ -1,5 +1,7 @@
 // src/main/java/dev/badkraft/engine/parser/ArrayParseResult.java
-package dev.badkraft.anvil;
+package dev.badkraft.anvil.parser;
+
+import dev.badkraft.anvil.core.data.Value;
 
 import java.util.List;
 

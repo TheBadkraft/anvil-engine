@@ -1,4 +1,4 @@
-package dev.badkraft.anvil;
+package dev.badkraft.anvil.core.data;
 
 // We need to separate actual operators from symbols
 public enum Operator {

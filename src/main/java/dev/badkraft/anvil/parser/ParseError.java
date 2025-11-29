@@ -1,5 +1,5 @@
 // src/main/java/dev/badkraft/engine/parser/ParseError.java
-package dev.badkraft.anvil;
+package dev.badkraft.anvil.parser;
 
 import org.jetbrains.annotations.NotNull;
 

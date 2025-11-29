@@ -1,8 +1,8 @@
 // src/main/java/dev/badkraft/engine/writer/ModuleWriter.java
 package dev.badkraft.anvil.writer;
 
-import dev.badkraft.anvil.*;
-import dev.badkraft.anvil.Module;
+import dev.badkraft.anvil.core.api.Context;
+import dev.badkraft.anvil.core.data.*;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -16,17 +16,17 @@ public final class ModuleWriter {
         this.isPretty = pretty;
     }
 
-    public String write(Module module) {
-        if (!module.isValid()) {
+    public String write(Context context) {
+        if (!context.isValid()) {
             throw new IllegalStateException("Cannot write invalid module");
         }
 
-        if (module.dialect() != Dialect.NONE) {
-            sb.append("#!").append(module.dialect().name().toLowerCase()).append('\n');
+        if (context.dialect() != Dialect.NONE) {
+            sb.append("#!").append(context.dialect().name().toLowerCase()).append('\n');
             if (isPretty) sb.append('\n');
         }
 
-        List<Statement> stmts = module.statements();
+        List<Statement> stmts = context.statements();
         for (int i = 0; i < stmts.size(); i++) {
             if (stmts.get(i) instanceof Assignment a) {
                 writeAssignment(a);

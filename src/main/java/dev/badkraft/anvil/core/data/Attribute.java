@@ -1,5 +1,5 @@
 // src/main/java/dev/badkraft/engine/parser/Attribute.java
-package dev.badkraft.anvil;
+package dev.badkraft.anvil.core.data;
 
 import org.jetbrains.annotations.NotNull;
 import java.util.Objects;

@@ -1,8 +1,10 @@
 // src/test/java/dev/badkraft/aurora/parser/FileTest.java
 package dev.badkraft.anvil.parser;
 
-import dev.badkraft.anvil.*;
-import dev.badkraft.anvil.Module;
+import dev.badkraft.anvil.core.api.Context;
+import dev.badkraft.anvil.core.data.Attribute;
+import dev.badkraft.anvil.core.data.Statement;
+import dev.badkraft.anvil.core.data.Value;
 
 import java.io.IOException;
 import java.nio.file.*;
@@ -14,7 +16,7 @@ public class FileTest {
 
     private static boolean speedTest = false;
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
         ensureTestDirectory();
 
         if (args.length > 0 && args[0].equals("--speed")) {
@@ -75,48 +77,48 @@ public class FileTest {
         }
     }
 
-    private static TestResult runSingleFile(Path path) {
+    private static TestResult runSingleFile(Path path) throws IOException {
         String fileName = path.getFileName().toString();
         System.out.println("=== " + fileName + " ===");
 
         long start = System.nanoTime();
-        ParseResult<?> result = AnvilParser.parse(path);
+        Context context = Context.builder()
+                .source(path)
+                .build();
+        assert context.source().peek() == '@';
+
+        AnvilParser.parse(context);
         long parseTime = (System.nanoTime() - start) / 1_000_000;
+        boolean success = context.isParsed();
 
-        boolean success = result.isSuccess() && result.errors().isEmpty();
-        var module = success ? (dev.badkraft.anvil.Module) result.result() : null;
-
-        return new TestResult(fileName, path, module, result.errors(), parseTime, success);
+        return new TestResult(fileName, path, context, parseTime, success);
     }
 
     private static void printResult(TestResult r) {
         if (!r.success) {
-            System.out.printf("FAILED — %d error(s) in %.3f ms%n", r.errors.size(), r.parseTime);
-            r.errors.forEach(e ->
-                    System.err.printf(" [%d:%d] %s%n", e.line(), e.col(), e.message())
-            );
+            System.out.printf("FAILED in %.5f ms%n", r.parseTime);
             return;
         }
 
-        dev.badkraft.anvil.Module module = r.module;
-        System.out.printf("PASS — %.3f ms%n", r.parseTime);
+        Context context = r.context;
+        System.out.printf("PASS — %.5f ms%n", r.parseTime);
         if(speedTest) {
             return;
         }
-        System.out.println("Module [" + module.namespace() + "] \n   dialect: " + module.dialect());
+        System.out.println("Module [" + context.namespace() + "] \n   dialect: " + context.dialect());
         System.out.println();
         // Log: MODULE ATTRIBUTES
-        if (!module.attributes().isEmpty()) {
+        if (!context.attributes().isEmpty()) {
             System.out.println("Module Attributes:");
-            for (Attribute attr : module.attributes()) {
+            for (Attribute attr : context.attributes()) {
                 System.out.println("  - " + formatAttribute(attr));
             }
             System.out.println();
         }
         // Log: STATEMENTS
-        if (!module.statements().isEmpty()) {
+        if (!context.statements().isEmpty()) {
             System.out.println("Statements:");
-            for (Statement stmt : module.statements()) {
+            for (Statement stmt : context.statements()) {
                 System.out.println(prettyPrintStatement(stmt, 1));
             }
         } else {
@@ -205,8 +207,7 @@ public class FileTest {
     record TestResult(
             String name,
             Path path,
-            Module module,
-            List<ParseError> errors,
+            Context context,
             double parseTime,
             boolean success
     ) {}

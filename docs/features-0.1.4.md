@@ -67,7 +67,7 @@ com.mojang.blaze3d.audio.Channel @[class] := {
 - Second
 | # | Feature                                          | Status     | Priority |
 |---|--------------------------------------------------|------------|----------|
-| A | Only one `@[…]` module attribute block allowed   | Limitation | Critical |
+| A | Only one `@[…]` context attribute block allowed   | Limitation | Critical |
 | B | `.` allowed in keys (???)                        | Limitation | Critical |
 | C | Nested objects allowed attribution (???)         | New feature| Required |
 | D | Inheritance - single inheritance `Ancestor`      | New feature| Required |

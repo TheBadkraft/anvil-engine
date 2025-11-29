@@ -1,4 +1,4 @@
-package dev.badkraft.anvil;
+package dev.badkraft.anvil.core.data;
 
 public enum Dialect {
     ASL(0, "asl"),
