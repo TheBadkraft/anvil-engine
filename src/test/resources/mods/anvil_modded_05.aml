@@ -1,0 +1,225 @@
+#!aml
+@[mod="stress_test", version="1.0.0", author="AnvilGen", size="6KB", valid=true]
+
+mythical_spike @[ tier=3, rarity=uncommon ] := {
+    name := "Ancient wand"
+    type := axe
+    tags := [ "mineable/shovel", "mineable/axe", "occludes", "needs_diamond_tool" ]
+}
+
+mythical_void @[ tier=3, fireproof=true ] := {
+    name := "Legendary hammer"
+    type := leggings
+}
+
+demonic_moon @[ rarity=rare ] := {
+    name := "Cursed crossbow"
+    type := dagger
+    tags := [ "needs_stone_tool", "full_block", "needs_iron_tool", "needs_diamond_tool" ]
+}
+
+mythical_core @[ tier=2, rarity=rare ] := {
+    name := "Celestial crossbow"
+    type := shovel
+    tags := [ "needs_stone_tool", "flammable" ]
+}
+
+radiant_abyss := {
+    name := "Arcane dagger"
+    type := bow
+    tags := [ "full_block", "mineable/pickaxe", "needs_stone_tool" ]
+}
+
+void_frost @[ tier=5, damage=7.3, soulbound=true ] := {
+    name := "Void helmet"
+    type := boots
+    tags := [ "needs_stone_tool" ]
+    lore := @md`"Blessed by Notch"`
+}
+
+frozen_void @[ durability=2592 ] := {
+    name := "Infernal dagger"
+    type := block
+    tags := [ "needs_stone_tool", "mineable/axe", "transparent" ]
+}
+
+prismatic_core @[ rarity=common, damage=14.4, durability=296 ] := {
+    name := "Void Orb"
+    type := shovel
+    tags := [ "needs_iron_tool", "needs_diamond_tool", "transparent", "mineable/shovel" ]
+    lore := @md`"Forged in the void"`
+}
+
+prismatic_sun @[ tier=5, rarity=epic, cursed=true ] := {
+    name := "Lunar sword"
+    type := crossbow
+    tags := [ "flammable", "mineable/axe", "needs_diamond_tool", "needs_iron_tool" ]
+    lore := @md`"Blessed by Notch"`
+}
+
+celestial_edge @[ damage=9.1, durability=2970, fireproof=true ] := {
+    name := "Cursed chestplate"
+    type := hammer
+    tags := [ "occludes", "flammable", "mineable/pickaxe" ]
+}
+
+celestial_frost @[ tier=2, damage=13.6 ] := {
+    name := "Enchanted pickaxe"
+    type := gem
+    lore := @md`"Whispers of the old gods"`
+}
+
+radiant_blade @[ tier=2, rarity=rare ] := {
+    name := "Ancient spear"
+    type := hammer
+}
+
+arcane_fang @[ tier=5, rarity=uncommon ] := {
+    name := "Arcane Gem"
+    type := dagger
+    lore := @md`"Forged in the void"`
+}
+
+burning_nexus @[ tier=2, rarity=rare ] := {
+    name := "Prismatic helmet"
+    type := spear
+    tags := [ "transparent" ]
+}
+
+demonic_moon @[ tier=4, rarity=uncommon, cursed=true ] := {
+    name := "Legendary Block"
+    type := wand
+}
+
+shadow_storm @[ tier=4, rarity=common, durability=172, cursed=true ] := {
+    name := "Solar crossbow"
+    type := shovel
+    lore := @md`"Contains trapped souls"`
+}
+
+lunar_nexus @[ tier=5, damage=10.2, soulbound=true ] := {
+    name := "Enchanted wand"
+    type := axe
+    tags := [ "occludes" ]
+    lore := @md`"Blessed by Notch"`
+}
+
+shadow_shard @[ tier=2, rarity=uncommon, cursed=true, soulbound=true ] := {
+    name := "Toxic pickaxe"
+    type := sword
+    tags := [ "occludes", "needs_diamond_tool", "mineable/shovel", "flammable" ]
+}
+
+legendary_fang @[ tier=4, cursed=true ] := {
+    name := "Radiant axe"
+    type := spear
+}
+
+radiant_void @[ tier=2, rarity=common, damage=4.6, durability=630 ] := {
+    name := "Solar dagger"
+    type := hoe
+    lore := @md`"Contains trapped souls"`
+}
+
+shadow_sun @[ tier=2, fireproof=true ] := {
+    name := "Mythical chestplate"
+    type := pickaxe
+    tags := [ "mineable/axe", "occludes", "mineable/pickaxe" ]
+}
+
+demonic_whisper @[ tier=2, rarity=common, durability=531 ] := {
+    name := "Mythical wand"
+    type := hammer
+    tags := [ "flammable", "needs_iron_tool", "mineable/shovel" ]
+    lore := @md`"Forged in the void"`
+}
+
+divine_heart @[ rarity=rare ] := {
+    name := "Legendary Gem"
+    type := wand
+}
+
+legendary_blade @[ damage=5.4 ] := {
+    name := "Void sword"
+    type := staff
+    tags := [ "full_block", "transparent", "needs_diamond_tool" ]
+}
+
+enchanted_fang @[ tier=4, durability=114 ] := {
+    name := "Cursed sword"
+    type := sword
+}
+
+prismatic_heart := {
+    name := "Ancient shovel"
+    type := crossbow
+    tags := [ "occludes", "transparent" ]
+}
+
+solar_heart @[ tier=1, durability=2576 ] := {
+    name := "Ancient hammer"
+    type := leggings
+    tags := [ "mineable/axe", "mineable/pickaxe", "occludes" ]
+}
+
+ancient_fang @[ rarity=rare, damage=6.6 ] := {
+    name := "Ancient Orb"
+    type := sword
+    lore := @md`"Cursed by Herobrine"`
+}
+
+infernal_nexus @[ tier=4 ] := {
+    name := "Enchanted chestplate"
+    type := helmet
+    tags := [ "needs_diamond_tool", "occludes", "full_block", "mineable/axe" ]
+}
+
+frozen_sun @[ damage=13.4, durability=2855 ] := {
+    name := "Divine pickaxe"
+    type := axe
+    tags := [ "flammable", "full_block" ]
+}
+
+ancient_storm @[ rarity=common, damage=11.5, fireproof=true ] := {
+    name := "Legendary crossbow"
+    type := boots
+    tags := [ "mineable/axe" ]
+}
+
+mythical_frost @[ tier=1, damage=15.3, durability=2118 ] := {
+    name := "Toxic boots"
+    type := helmet
+    tags := [ "occludes", "full_block" ]
+}
+
+radiant_claw @[ tier=1, damage=11.2, fireproof=true ] := {
+    name := "Infernal Gem"
+    type := boots
+    tags := [ "occludes" ]
+}
+
+arcane_void @[ tier=4, rarity=common, damage=13.7, fireproof=true ] := {
+    name := "Legendary leggings"
+    type := wand
+    tags := [ "needs_iron_tool", "mineable/axe", "needs_diamond_tool" ]
+}
+
+ancient_shard @[ tier=1, damage=4.2, durability=2609, cursed=true, soulbound=true ] := {
+    name := "Enchanted Orb"
+    type := ore
+    tags := [ "occludes", "transparent", "mineable/axe", "needs_iron_tool" ]
+}
+
+ancient_frost @[ tier=4, damage=8.1, durability=2018 ] := {
+    name := "Celestial staff"
+    type := sword
+    tags := [ "mineable/shovel", "needs_iron_tool", "flammable", "mineable/pickaxe" ]
+}
+
+toxic_storm @[ fireproof=true, cursed=true ] := {
+    name := "Divine crossbow"
+    type := boots
+    tags := [ "mineable/axe", "transparent", "needs_diamond_tool", "mineable/pickaxe" ]
+}
+
+// END — 37 items — 5 KB — 100% valid Anvil

@@ -1,0 +1,198 @@
+#!aml
+@[mod="stress_test", version="1.0.0", author="AnvilGen", size="5KB", valid=true]
+
+legendary_soul @[ tier=3 ] := {
+    name := "Shadow leggings"
+    type := leggings
+    tags := [ "occludes", "mineable/shovel", "needs_iron_tool", "needs_stone_tool" ]
+    lore := @md`"Blessed by Notch"`
+}
+
+shadow_whisper @[ rarity=rare, durability=2147 ] := {
+    name := "Lunar boots"
+    type := chestplate
+}
+
+arcane_abyss @[ tier=1, rarity=uncommon, durability=2389 ] := {
+    name := "Burning helmet"
+    type := hammer
+    tags := [ "full_block", "mineable/pickaxe" ]
+}
+
+void_soul @[ rarity=common, durability=1909 ] := {
+    name := "Divine Orb"
+    type := boots
+    lore := @md`"Cursed by Herobrine"`
+}
+
+arcane_thorn @[ tier=4, rarity=uncommon, damage=14.4 ] := {
+    name := "Legendary wand"
+    type := dagger
+    tags := [ "occludes", "mineable/shovel", "needs_diamond_tool", "flammable" ]
+}
+
+divine_blade @[ tier=1, rarity=epic ] := {
+    name := "Cursed sword"
+    type := bow
+    tags := [ "occludes", "flammable" ]
+}
+
+celestial_blade @[ tier=3, rarity=uncommon, durability=1391 ] := {
+    name := "Shadow pickaxe"
+    type := shovel
+    tags := [ "flammable", "mineable/pickaxe", "mineable/axe", "occludes" ]
+}
+
+shadow_void @[ tier=4, rarity=uncommon, damage=12.0 ] := {
+    name := "Radiant boots"
+    type := axe
+    tags := [ "mineable/pickaxe" ]
+}
+
+lunar_frost @[ tier=2, rarity=epic ] := {
+    name := "Ancient shovel"
+    type := leggings
+    tags := [ "needs_iron_tool", "needs_diamond_tool", "flammable", "occludes" ]
+}
+
+lunar_abyss @[ durability=2412 ] := {
+    name := "Shadow hammer"
+    type := sword
+    lore := @md`"Cursed by Herobrine"`
+}
+
+cursed_nexus @[ rarity=common, damage=17.4, fireproof=true, soulbound=true ] := {
+    name := "Lunar axe"
+    type := wand
+    lore := @md`"Cursed by Herobrine"`
+}
+
+arcane_abyss @[ damage=14.4 ] := {
+    name := "Lunar staff"
+    type := block
+}
+
+legendary_shard @[ tier=2, rarity=rare, fireproof=true, soulbound=true ] := {
+    name := "Radiant sword"
+    type := boots
+}
+
+legendary_soul @[ tier=5, rarity=common, damage=5.9, durability=2471, cursed=true ] := {
+    name := "Infernal boots"
+    type := pickaxe
+}
+
+frozen_sun @[ tier=4, durability=537, cursed=true ] := {
+    name := "Radiant staff"
+    type := crossbow
+    tags := [ "needs_iron_tool", "transparent" ]
+}
+
+infernal_nexus @[ rarity=common ] := {
+    name := "Burning dagger"
+    type := bow
+    tags := [ "mineable/shovel" ]
+}
+
+arcane_moon @[ tier=4, rarity=common, durability=1427 ] := {
+    name := "Radiant boots"
+    type := wand
+    tags := [ "needs_iron_tool", "mineable/pickaxe" ]
+}
+
+infernal_core @[ tier=1, durability=1578 ] := {
+    name := "Solar helmet"
+    type := wand
+}
+
+mythical_spike @[ tier=2, rarity=uncommon, durability=114 ] := {
+    name := "Toxic Block"
+    type := gem
+    tags := [ "mineable/pickaxe" ]
+}
+
+demonic_moon @[ tier=2, damage=12.0 ] := {
+    name := "Toxic hammer"
+    type := sword
+    tags := [ "transparent" ]
+    lore := @md`"Whispers of the old gods"`
+}
+
+legendary_heart @[ tier=2, rarity=uncommon, cursed=true, soulbound=true ] := {
+    name := "Cursed crossbow"
+    type := hoe
+    tags := [ "mineable/pickaxe", "needs_iron_tool" ]
+}
+
+shadow_flame @[ tier=1, rarity=uncommon, cursed=true, soulbound=true ] := {
+    name := "Toxic boots"
+    type := crossbow
+    tags := [ "occludes" ]
+    lore := @md`"Whispers of the old gods"`
+}
+
+solar_spike @[ damage=12.8, fireproof=true ] := {
+    name := "Mythical chestplate"
+    type := helmet
+}
+
+celestial_storm @[ tier=4 ] := {
+    name := "Mythical bow"
+    type := ore
+    tags := [ "flammable" ]
+}
+
+frozen_moon @[ durability=1050, soulbound=true ] := {
+    name := "Toxic Orb"
+    type := dagger
+    lore := @md`"Contains trapped souls"`
+}
+
+celestial_flame @[ rarity=rare, durability=2218 ] := {
+    name := "Radiant pickaxe"
+    type := boots
+}
+
+void_thorn := {
+    name := "Burning crossbow"
+    type := wand
+    tags := [ "needs_stone_tool", "needs_diamond_tool", "mineable/shovel", "mineable/axe" ]
+}
+
+solar_flame @[ tier=3, rarity=rare, durability=2431 ] := {
+    name := "Ancient axe"
+    type := axe
+    tags := [ "flammable" ]
+}
+
+enchanted_blade @[ damage=14.2, cursed=true ] := {
+    name := "Enchanted pickaxe"
+    type := crossbow
+    tags := [ "mineable/pickaxe", "occludes", "flammable" ]
+}
+
+arcane_heart @[ tier=2, cursed=true ] := {
+    name := "Toxic sword"
+    type := chestplate
+    tags := [ "needs_diamond_tool" ]
+}
+
+lunar_whisper @[ tier=3, damage=11.8, cursed=true ] := {
+    name := "Toxic pickaxe"
+    type := hammer
+    tags := [ "mineable/shovel", "occludes", "flammable" ]
+}
+
+shadow_spike @[ tier=2, rarity=common, soulbound=true ] := {
+    name := "Lunar chestplate"
+    type := ore
+    tags := [ "mineable/axe" ]
+}
+
+celestial_nexus @[ rarity=epic, damage=14.9, fireproof=true, cursed=true ] := {
+    name := "Celestial pickaxe"
+    type := shovel
+    lore := @md`"Whispers of the old gods"`
+}
+
+// END — 33 items — 4 KB — 100% valid Anvil

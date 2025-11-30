@@ -1,5 +1,5 @@
 // anvil-engine/build.gradle.kts
-version = "0.1.4"
+version = "0.1.6"
 
 plugins {
     java

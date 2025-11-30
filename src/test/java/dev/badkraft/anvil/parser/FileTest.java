@@ -54,6 +54,12 @@ server:
             files.add(TEST_DIR.resolve("attributes.aml"));
             files.add(TEST_DIR.resolve("inherits.aml"));
             files.add(TEST_DIR.resolve("large_block_lib.aml"));
+        } else if (args.length == 1) {
+            // single file in args[0] - validate file
+            Path srcPath = TEST_DIR.resolve(args[0]);
+            if (Files.exists(srcPath)) {
+                files.add(srcPath);
+            }
         } else {
             files = resolveFiles(args);
             if (files.isEmpty()) {
@@ -64,9 +70,14 @@ server:
 
         List<TestResult> results = new ArrayList<>();
         String minified = AmlMinifier.minify(testSource);
-        TestResult result = runSingleSource(minified);
+        int count = speedTest ? 500 : 1;
+        TestResult result = null;
+        for (int i = 0; i < count; i++) {
+            result = runSingleSource(minified, speedTest);
+        }
+        assert result != null;
         results.add(result);
-        printResult(result);
+       printResult(result);
         System.out.println();
 
         System.out.println("Running " + files.size() + " test file(s)...\n");
@@ -147,12 +158,13 @@ server:
         return new TestResult(fileName, path, context, parseTimeMs, success, null);
     }
 
-    private static TestResult runSingleSource(String minified) {
+    private static TestResult runSingleSource(String minified, boolean isSpeedTest) {
         // do what runSingleFile does, but for a string source
-        System.out.println("=== In-Memory Test Source ===");
-        System.out.println(minified);
-        System.out.println("Running " + testSource.length() + "-byte test source...\n");
-
+        if (!isSpeedTest) {
+            System.out.println("=== In-Memory Test Source ===");
+            System.out.println(minified);
+            System.out.println("Running " + testSource.length() + "-byte test source...\n");
+        }
         long start = System.nanoTime();
         Context context;
         boolean success = true;

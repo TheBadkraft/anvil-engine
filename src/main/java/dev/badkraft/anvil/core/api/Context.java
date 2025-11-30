@@ -2,6 +2,7 @@
 package dev.badkraft.anvil.core.api;
 
 import dev.badkraft.anvil.core.data.*;
+import dev.badkraft.anvil.parser.AnvilParser;
 import dev.badkraft.anvil.utilities.Utils;
 
 import java.io.IOException;
@@ -25,6 +26,10 @@ public final class Context {
         this.namespace = builder.namespace != null ? builder.namespace : Utils.createNamespace();
         loadHeader(builder);
         this.factory = new ValueFactory(this.source);
+    }
+
+    public void parse() {
+        AnvilParser.parse(this);
     }
 
     // ------------------------------------------------------------------ //
@@ -61,7 +66,7 @@ public final class Context {
     public boolean isParsed()            { return parsed; }
     public List<Statement> statements()  { return List.copyOf(statements); }
     public Set<String> exportedIdentifiers() { return Set.copyOf(exportedIdentifiers); }
-    public List<Attribute> attributes()  { return List.copyOf(attributes); }
+    public Value.Attributes attributes()  { return new Value.Attributes(attributes); }
 
     // ------------------------------------------------------------------ //
     // Parser-only mutation API
