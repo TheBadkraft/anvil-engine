@@ -6,9 +6,9 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /*
-    An assignment statement, e.g., key := value
+    An assignment statement, e.g., key := content
  */
-public record Assignment(String key, List<Attribute> attributes, Value value, String parent) implements Statement {
+public record Assignment(String key, List<Attribute> attributes, Value value, String base) implements Statement {
     public Assignment(String key, List<Attribute> attributes, Value value) {
         this(key, List.copyOf(attributes), value, null);
     }

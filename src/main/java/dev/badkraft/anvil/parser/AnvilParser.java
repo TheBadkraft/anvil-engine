@@ -15,8 +15,6 @@ public final class AnvilParser {
     private final Context context;
     private final Source source;
 
-    private boolean seenModuleAttributes = false;
-
     private AnvilParser(Context context) {
         this.context = context;
         this.source = context.source();
@@ -29,15 +27,12 @@ public final class AnvilParser {
     private void parseSource() {
         source.skipWhitespace();
 
-        // Module-level attributes @[ ... ] — zero or more
         while (source.is("@[")) {
-            seenModuleAttributes = true;
             List<Attribute> attrs = parseAttributeBlock();
             context.addAllAttributes(attrs);
             source.skipWhitespace();
         }
 
-        // Top-level statements
         while (!source.isEOF()) {
             Statement stmt = parseStatement();
             context.addStatement(stmt);
@@ -48,20 +43,16 @@ public final class AnvilParser {
     }
 
     private Statement parseStatement() {
-        String parent = null;
-
-        // Identifier (optionally followed by : Parent)
         String key = readIdentifier();
         if (key.isEmpty()) raise(EXPECTED_IDENTIFIER);
 
+        String base = null;
         source.skipWhitespace();
-
-        // Optional inheritance: key : Parent
-        if (source.is(":")) {
+        if (source.is(":") && !source.isOperator(ASSIGN)) {
             source.consume(1);
             source.skipWhitespace();
-            parent = readIdentifier();
-            if (parent.isEmpty()) raise(EXPECTED_IDENTIFIER);
+            base = readIdentifier();
+            if (base.isEmpty()) raise(EXPECTED_IDENTIFIER);
             source.skipWhitespace();
         }
 
@@ -72,38 +63,43 @@ public final class AnvilParser {
         source.consumeOperator(ASSIGN);
         source.skipWhitespace();
 
+        int valueStart = source.position();
         Value value = parseValue();
+        int valueEnd = source.position();
+
         if (!attrs.isEmpty()) {
             value.getAttributes().addAll(attrs);
         }
 
-        // Optional terminator
-        if (source.isOperator(COMMA)) {
-            source.consumeOperator(COMMA);
-        }
+        if (source.isOperator(COMMA)) source.consumeOperator(COMMA);
 
-        Assignment assignment = new Assignment(key, attrs, value, parent);
+        Assignment assignment = new Assignment(key, attrs, value, base);
         context.addIdentifier(key);
         return assignment;
     }
 
     private Value parseValue() {
-        if (source.isOperator(L_BRACE))  return parseObject();
+        if (source.isOperator(L_BRACE))   return parseObject();
         if (source.isOperator(L_BRACKET)) return parseArray();
         if (source.isOperator(L_PAREN))   return parseTuple();
         if (source.is("\""))              return parseString();
-        if (source.is("#") || source.is("0x") || source.is("0X")) return parseHex();
-        if (source.is("true"))            { source.consume(4); return context.booleanVal(true); }
-        if (source.is("false"))           { source.consume(5); return context.booleanVal(false); }
-        if (source.is("null"))            { source.consume(4); return context.nullVal(); }
 
-        if (source.isOperator(AT) || source.isOperator(BACKTICK)) {
-            return parseBlob();
+        int hexPrefix = source.matchHexPrefix();
+        if (hexPrefix > 0) {
+            source.consume(hexPrefix);
+            return parseHexAfterPrefix(hexPrefix == 1);
         }
 
-        String bare = readBareLiteral();
-        if (bare != null) {
-            return context.bare(bare);
+        if (source.is("true"))  { source.consume(4); return context.bool(true,  source.position()-4, source.position()); }
+        if (source.is("false")) { source.consume(5); return context.bool(false, source.position()-5, source.position()); }
+        if (source.is("null"))  { source.consume(4); return context.nullVal(    source.position()-4, source.position()); }
+
+        if (source.isOperator(AT) || source.isOperator(BACKTICK)) return parseBlob();
+
+        int bareLen = matchBareLiteral();
+        if (bareLen > 0) {
+            source.consume(bareLen);
+            return context.bare(source.position() - bareLen, source.position());
         }
 
         return parseNumber();
@@ -114,12 +110,10 @@ public final class AnvilParser {
         source.consumeOperator(L_BRACE);
         source.skipWhitespace();
 
-        if (source.isOperator(R_BRACE)) {
-            raise(EMPTY_OBJECT_NOT_ALLOWED);
-        }
+        if (source.isOperator(R_BRACE)) raise(EMPTY_OBJECT_NOT_ALLOWED);
 
         List<Map.Entry<String, Value>> fields = new ArrayList<>();
-        List<Attribute> attrs = new ArrayList<>();
+        List<Attribute> objAttrs = new ArrayList<>();
         Set<String> seen = new HashSet<>();
 
         while (!source.isOperator(R_BRACE)) {
@@ -128,7 +122,7 @@ public final class AnvilParser {
             if (!seen.add(key)) raise(DUPLICATE_FIELD_IN_OBJECT);
 
             source.skipWhitespace();
-            attrs = parseAttributeBlock();
+            List<Attribute> fieldAttrs = parseAttributeBlock();
             source.skipWhitespace();
 
             if (!source.isOperator(ASSIGN)) raise(EXPECTED_ASSIGN);
@@ -136,7 +130,7 @@ public final class AnvilParser {
             source.skipWhitespace();
 
             Value value = parseValue();
-            if (!attrs.isEmpty()) value.getAttributes().addAll(attrs);
+            if (!fieldAttrs.isEmpty()) value.getAttributes().addAll(fieldAttrs);
             fields.add(Map.entry(key, value));
 
             source.skipWhitespace();
@@ -147,8 +141,7 @@ public final class AnvilParser {
         }
 
         source.consumeOperator(R_BRACE);
-        String full = source.substring(start, source.position());
-        return context.object(fields, attrs);
+        return context.object(fields, objAttrs, start, source.position());
     }
 
     private Value parseArray() {
@@ -157,6 +150,7 @@ public final class AnvilParser {
         source.skipWhitespace();
 
         List<Value> elements = new ArrayList<>();
+        List<Attribute> attrs = new ArrayList<>();
 
         while (!source.isOperator(R_BRACKET)) {
             elements.add(parseValue());
@@ -169,144 +163,173 @@ public final class AnvilParser {
         }
 
         source.consumeOperator(R_BRACKET);
-        String full = source.substring(start, source.position());
-        return context.array(elements);
+        return context.array(elements, attrs, start, source.position());
     }
 
     private Value parseTuple() {
         int start = source.position();
-        source.consumeOperator(Operator.L_PAREN); // (
+        source.consumeOperator(L_PAREN);
+        source.skipWhitespace();
+
+        if (source.isOperator(R_PAREN)) {
+            raise(EMPTY_TUPLE_ELEMENT);
+        }
 
         List<Value> elements = new ArrayList<>();
+        List<Attribute> attrs = new ArrayList<>();
+
+        // First element (required)
+        elements.add(parseValue());
         source.skipWhitespace();
-        // Disallow empty tuple ()
-        if (source.isOperator(Operator.R_PAREN)) {
-            raise(ErrorCode.EMPTY_TUPLE_ELEMENT);
-        }
 
-        while (true) {
-            Value element = parseValue();
-            elements.add(element);
+        // Zero or more: , value
+        while (source.isOperator(COMMA)) {
+            source.consumeOperator(COMMA);
             source.skipWhitespace();
 
-            if (source.isOperator(Operator.R_PAREN)) {
-                break;
+            if (source.isOperator(R_PAREN)) {
+                raise(EXPECTED_VALUE);
             }
 
-            // Comma required between elements
-            if (!source.isOperator(Operator.COMMA)) {
-                raise(ErrorCode.EXPECTED_COMMA_IN_TUPLE);
-            }
-            source.consumeOperator(Operator.COMMA);
+            elements.add(parseValue());
             source.skipWhitespace();
         }
 
-        // Must have at least 2 elements
+        // Closing parenthesis
+        if (!source.isOperator(R_PAREN)) {
+            raise(EXPECTED_TUPLE_CLOSE);
+        }
+
         if (elements.size() < 2) {
-            raise(ErrorCode.TUPLE_TOO_SHORT);
+            raise(TUPLE_TOO_SHORT);
         }
 
-        source.consumeOperator(Operator.R_PAREN); // )
-
-        String fullSource = source.substring(start, source.position());
-        return context.tuple(elements);
+        source.consumeOperator(R_PAREN);
+        return context.tuple(elements, attrs, start, source.position());
     }
 
     private Value parseString() {
-        source.consumeOperator(QUOTE);
-        int start = source.position();
-        while (!source.isEOF() && !(source.isOperator(QUOTE) && !source.isEscaped(source.position() - 1))) {
-            source.consume();
-        }
-        String content = source.substring(start, source.position());
-        source.consumeOperator(QUOTE);
-        return context.string(content);
+        Content content = parseContent(QUOTE);
+        return context.string(content.start(), content.end());
     }
 
     private Value parseBlob() {
         String attribute = null;
+        int attrStart = -1;
+
         if (source.isOperator(AT)) {
             source.consumeOperator(AT);
+            attrStart = source.position();
             attribute = readIdentifier();
+            if (attribute.isEmpty()) raise(EXPECTED_IDENTIFIER);
         }
-        int start = source.position();
-        source.consumeOperator(BACKTICK);
-        while (!source.isEOF() && !(source.isOperator(BACKTICK) && !source.isEscaped(source.position() - 1))) {
-            source.consume();
-        }
-        String full = source.substring(start, source.position() + 1); // include closing `
-        source.consumeOperator(BACKTICK);
-        return context.blob(full, attribute);
+        Content content = parseContent(BACKTICK); // includes backticks
+        return context.blob(attribute, content.start(), content.end());
     }
 
-    private Value parseHex() {
-        boolean isHash = source.is("#");
-        StringBuilder buffer = source.buffer();
-
-        String prefix = isHash ? source.take(1) : source.take(2);
-        buffer.setLength(0);
-        while (source.isHexDigit(source.peek()) || source.peek() == '_') {
-            if (source.isHexDigit(source.peek())) buffer.append(source.consume());
-            else source.consume();
+    private record Content(int start, int end) {}
+    private Content parseContent(Operator delimiter) {
+        if (delimiter != QUOTE && delimiter != Operator.BACKTICK) {
+            raise(ErrorCode.UNEXPECTED_TOKEN);
         }
-        String digits = buffer.toString();
-        long value = Long.parseLong(digits, 16);
-        String full = prefix + digits;
+
+        int start = -1;
+        // if QUOTE, we want to omit the surrounding quotes
+        if (delimiter == QUOTE) {
+            source.consumeOperator(delimiter);
+            start = source.position();
+        } else {
+            // if BACKTICK, we want to capture the surrounding backticks
+            start = source.position();
+            source.consumeOperator(delimiter);
+        }
+        while (!source.isEOF()) {
+            if (source.isOperator(delimiter) && !source.isEscaped(source.position())) {
+                break;                       // found unescaped closing delimiter
+            }
+            source.consume();                       // normal char or escaped sequence
+        }
+
+        if (!source.isOperator(delimiter)) {
+            raise(delimiter == QUOTE ? UNTERMINATED_STRING : UNTERMINATED_BLOB);
+        }
+
+        if (delimiter == QUOTE) {
+            // for QUOTE, capture up to but not including closing "
+            Content content = new Content(start, source.position());
+            source.consumeOperator(delimiter);      // consume closing "
+            return content;
+        }
+
+        source.consumeOperator(delimiter);          // consume closing `
+        // Return the exact text we just parsed (including delimiters)
+        return new Content(start, source.position());
+    }
+
+    private Value parseHexAfterPrefix(boolean isHash) {
+        int start = source.position() - (isHash ? 1 : 2);
+        StringBuilder digits = new StringBuilder();
+
+        while (source.isHexDigit(source.peek()) || source.peek() == '_') {
+            char c = source.peek();
+            if (source.isHexDigit(c)) digits.append(c);
+            source.consume();
+        }
+
+        long value = Long.parseLong(digits.toString(), 16);
         return isHash
-                ? context.hexValue(value)
-                : context.longValue(value);
+                ? context.hex(value, start, source.position())
+                : context.longVal(value, start, source.position());
     }
 
     private Value parseNumber() {
         int start = source.position();
-        StringBuilder buffer = source.buffer();
+        StringBuilder buf = new StringBuilder();
 
-        if (source.peek() == '+' || source.peek() == '-') buffer.append(source.consume());
+        if (source.peek() == '+' || source.peek() == '-') buf.append(source.consume());
 
         boolean hasDigit = false;
         while (source.isDigit(source.peek()) || source.peek() == '_') {
-            if (source.isDigit(source.peek())) { buffer.append(source.consume()); hasDigit = true; }
-            else source.consume();
+            char c = source.peek();
+            if (source.isDigit(c)) { buf.append(c); hasDigit = true; }
+            source.consume();
         }
 
         boolean isFloat = false;
         if (source.peek() == '.') {
-            char dot = source.consume();
-            buffer.append(dot);
+            buf.append(source.consume());
             isFloat = true;
             while (source.isDigit(source.peek()) || source.peek() == '_') {
-                if (source.isDigit(source.peek())) buffer.append(source.consume());
+                if (source.isDigit(source.peek())) buf.append(source.consume());
                 else source.consume();
             }
         }
 
         if (source.peek() == 'e' || source.peek() == 'E') {
-            buffer.append(source.consume());
+            buf.append(source.consume());
             isFloat = true;
-            if (source.peek() == '+' || source.peek() == '-') buffer.append(source.consume());
+            if (source.peek() == '+' || source.peek() == '-') buf.append(source.consume());
             while (source.isDigit(source.peek()) || source.peek() == '_') {
-                if (source.isDigit(source.peek())) buffer.append(source.consume());
+                if (source.isDigit(source.peek())) buf.append(source.consume());
                 else source.consume();
             }
         }
 
         if (!hasDigit) raise(INVALID_NUMBER);
 
-        String full = source.substring(start, source.position());
-        String clean = buffer.toString().replace("_", "");
-
+        String clean = buf.toString().replace("_", "");
         if (isFloat) {
             double d = Double.parseDouble(clean);
-            return context.doubleValue(d);
+            return context.doubleVal(d, start, source.position());
         } else {
             long l = Long.parseLong(clean);
-            return context.longValue(l);
+            return context.longVal(l, start, source.position());
         }
     }
 
     private List<Attribute> parseAttributeBlock() {
         if (!source.is("@[")) return List.of();
-        source.consume(2); // @[
+        source.consume(2); // "@["
         source.skipWhitespace();
 
         List<Attribute> attrs = new ArrayList<>();
@@ -333,39 +356,48 @@ public final class AnvilParser {
             source.skipWhitespace();
         }
 
-        source.consume(1); // ]
+        source.consume(1); // "]"
         return List.copyOf(attrs);
     }
 
     private Value parseLiteralValue() {
-        int savePos = source.position();
+        int save = source.position();
         Value v = parseValue();
         if (v instanceof ObjectValue || v instanceof ArrayValue || v instanceof TupleValue || v instanceof BlobValue) {
-            source.setPosition(savePos, source.line(), source.column());
+            source.setPosition(save, source.line(), source.column());
             raise(INVALID_VALUE_IN_ATTRIBUTE);
         }
         return v;
     }
 
+    // ------------------------------------------------------------------ //
+    // Identifier / bare literal helpers (now fully Source-clean)
+    // ------------------------------------------------------------------ //
     private String readIdentifier() {
-        int start = source.position();
-        while (!source.isEOF() && (source.isAlphaNumeric(source.peek()) || source.peek() == '.' || source.peek() == '_')) {
-            source.consume();
-        }
-        String id = source.substring(start, source.position());
-        if (id.isEmpty() || id.startsWith(".") || id.endsWith(".") || id.contains("..")) {
-            return "";
-        }
+        int len = matchIdentifier();
+        if (len == 0) raise(EXPECTED_IDENTIFIER);
+        String id = source.substring(source.position(), source.position() + len);
+        source.consume(len);
+        context.addIdentifier(id);
         return id;
     }
 
-    private String readBareLiteral() {
-        int start = source.position();
-        if (!source.isAlpha(source.peek())) return null;
-        while (!source.isEOF() && (source.isAlphaNumeric(source.peek()) || ":._".indexOf(source.peek()) != -1)) {
-            source.consume();
+    private int matchIdentifier() {
+        if (!source.isIdentifierStart(source.peek())) return 0;
+        int len = 1;
+        while (!source.isEOF(len) && source.isIdentifierPart(source.peek(len))) len++;
+        return len;
+    }
+
+    private int matchBareLiteral() {
+        if (!source.isAlpha(source.peek())) return 0;
+        int len = 1;
+        while (!source.isEOF(len)) {
+            char c = source.peek(len);
+            if (!(Character.isLetterOrDigit(c) || ":._".indexOf(c) != -1)) break;
+            len++;
         }
-        return source.substring(start, source.position());
+        return len;
     }
 
     private void raise(ErrorCode code) {

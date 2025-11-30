@@ -10,7 +10,7 @@ import java.util.Objects;
  *   <li>Tag form:   @[code debug}</li>
  *   <li>K-V form:   @{code type=block}</li>
  * </ul>
- * The value, when present, is **not** a nested construct – only a literal (string, number, boolean, null).
+ * The content, when present, is **not** a nested construct – only a literal (string, number, boolean, null).
  */
 public record Attribute(@NotNull String key, Value value) {
     public Attribute(String key) { this(key, null); }

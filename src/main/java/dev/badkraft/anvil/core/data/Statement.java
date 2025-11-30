@@ -11,4 +11,5 @@ public sealed interface Statement permits Assignment {
     List<Attribute> attributes();
     String identifier();
     Value value();
+    String base();
 }

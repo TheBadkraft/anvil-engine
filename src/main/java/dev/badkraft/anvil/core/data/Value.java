@@ -1,4 +1,3 @@
-// src/main/java/dev/badkraft/engine/parser/Value.java
 package dev.badkraft.anvil.core.data;
 
 import org.jetbrains.annotations.NotNull;
@@ -8,154 +7,144 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public sealed interface Value
-        permits Value.NullValue, Value.BooleanValue, Value.LongValue, Value.DoubleValue,
-        Value.HexValue, Value.StringValue, Value.BareLiteral, Value.BlobValue,
-        Value.ArrayValue, Value.TupleValue, Value.ObjectValue {
+        permits Value.ArrayValue, Value.BareLiteral, Value.BlobValue, Value.BooleanValue,
+        Value.DoubleValue, Value.HexValue, Value.LongValue, Value.NullValue,
+        Value.ObjectValue, Value.StringValue, Value.TupleValue {
 
-    // =====================================================================
-    // VIRTUAL ATTRIBUTE FACADE — zero-cost, encapsulated, perfect
-    // =====================================================================
     default Attributes getAttributes() {
         return switch (this) {
             case ArrayValue a -> new Attributes(a.attributes);
             case TupleValue t -> new Attributes(t.attributes);
             case ObjectValue o -> new Attributes(o.attributes);
             default -> throw new UnsupportedOperationException(
-                    "Attributes are not supported on " + getClass().getSimpleName()
-            );
+                    "Attributes not supported on " + getClass().getSimpleName());
         };
     }
 
-    // This class is intentionally not a record to allow future extensibility
-    // and maintain strict control over its behavior.
+    int start();
+    int end();
+
     final class Attributes {
         private final List<Attribute> backing;
-
         private Attributes(List<Attribute> backing) {
             this.backing = Objects.requireNonNullElse(backing, new ArrayList<>());
         }
-
-        public void add(Attribute attribute) {
-            backing.add(attribute);
-        }
-        public void addAll(List<Attribute> attributes) {
-            backing.addAll(attributes);
-        }
+        public void add(Attribute attribute) { backing.add(attribute); }
+        public void addAll(List<Attribute> attributes) { backing.addAll(attributes); }
         public boolean isEmpty() { return backing.isEmpty(); }
         public int size() { return backing.size(); }
         public Attribute get(int index) { return backing.get(index); }
-        public boolean has(String key) {
-            return backing.stream().anyMatch(a -> a.key().equals(key));
-        }
-        public boolean hasTag(String key) {
-            return backing.stream()
-                    .anyMatch(a -> a.key().equals(key) && a.value() == null);
-        }
-        public Optional<Attribute> find(String key) {
-            return backing.stream()
-                    .filter(a -> a.key().equals(key))
-                    .findFirst();
-        }
-
+        public boolean has(String key) { return backing.stream().anyMatch(a -> a.key().equals(key)); }
+        public boolean hasTag(String key) { return backing.stream().anyMatch(a -> a.key().equals(key) && a.value() == null); }
+        public Optional<Attribute> find(String key) { return backing.stream().filter(a -> a.key().equals(key)).findFirst(); }
         public Stream<Attribute> stream() { return backing.stream(); }
         public Iterator<Attribute> iterator() { return backing.iterator(); }
     }
 
-    // =====================================================================
-    // PRIMITIVE VALUES — no attributes
-    // =====================================================================
-    record NullValue() implements Value {
+    // === PRIMITIVES ===
+    record NullValue(ValueBase base) implements Value {
+        public NullValue(Source source, int start, int end) {
+            this(new ValueBase(source, start, end));
+        }
         @Override public @NotNull String toString() { return "null"; }
+        @Override public int start() { return base.start; }
+        @Override public int end() { return base.end; }
     }
 
-    record BooleanValue(boolean value) implements Value {
-        @Override public @NotNull String toString() { return Boolean.toString(value); }
-    }
-
-    record LongValue(long value, String source) implements Value {
-        public LongValue(long value) { this(value, null); }
-        @Override public String toString() {
-            return source != null ? source : Long.toString(value);
+    record BooleanValue(boolean value, ValueBase base) implements Value {
+        public BooleanValue(Source source, boolean value, int start, int end) {
+            this(value, new ValueBase(source, start, end));
         }
+        @Override public @NotNull String toString() { return base.source(); }
+        @Override public int start() { return base.start; }
+        @Override public int end() { return base.end; }
     }
 
-    record DoubleValue(double value, String source) implements Value {
-        public DoubleValue(double value) { this(value, null); }
-        @Override public String toString() {
-            return source != null ? source : Double.toString(value);
+    record LongValue(long value, ValueBase base) implements Value {
+        public LongValue(Source source, long value, int start, int end) {
+            this(value, new ValueBase(source, start, end));
         }
+        @Override public @NotNull String toString() { return base.source(); }
+        @Override public int start() { return base.start; }
+        @Override public int end() { return base.end; }
     }
 
-    record HexValue(long value, String source) implements Value {
-        public HexValue(long value) { this(value, null); }
-        @Override public String toString() {
-            return source != null ? source : "0x" + Long.toHexString(value).toUpperCase();
+    record DoubleValue(double value, ValueBase base) implements Value {
+        public DoubleValue(Source source, double value, int start, int end) {
+            this(value, new ValueBase(source, start, end));
         }
+        @Override public @NotNull String toString() { return base.source(); }
+        @Override public int start() { return base.start; }
+        @Override public int end() { return base.end; }
     }
 
-    record StringValue(String value) implements Value {
-        public StringValue { Objects.requireNonNull(value); }
-        @Override public @NotNull String toString() { return value; }
+    record HexValue(long value, ValueBase base) implements Value {
+        public HexValue(Source source, long value, int start, int end) {
+            this(value, new ValueBase(source, start, end));
+        }
+        @Override public @NotNull String toString() { return base.source(); }
+        @Override public int start() { return base.start; }
+        @Override public int end() { return base.end; }
     }
 
-    record BareLiteral(String id) implements Value {
-        public BareLiteral { Objects.requireNonNull(id); }
-        @Override public @NotNull String toString() { return id; }
+    record StringValue(ValueBase base) implements Value {
+        public StringValue(Source source, int start, int end) {
+            this(new ValueBase(source, start, end));
+        }
+        public String content() { return base.substring();}
+        @Override public @NotNull String toString() { return base.source(); }
+        @Override public int start() { return base.start; }
+        @Override public int end() { return base.end; }
     }
 
-    record BlobValue(String content, String attribute) implements Value {
-        public BlobValue(String content) { this(content, null); }
-        @Override public @NotNull String toString() {
-            return (attribute != null ? "@" + attribute : "@") + content;
+    record BareLiteral(ValueBase base) implements Value {
+        public BareLiteral(Source source, int start, int end) {
+            this(new ValueBase(source, start, end));
         }
+        public String value() { return base.substring();}
+        @Override public @NotNull String toString() { return base.source(); }
+        @Override public int start() { return base.start; }
+        @Override public int end() { return base.end; }
     }
 
-    // =====================================================================
-    // COMPOSITE VALUES — with real attributes
-    // =====================================================================
-    record ArrayValue(List<Value> elements, List<Attribute> attributes, String source) implements Value {
-        public ArrayValue(List<Value> elements, String source) { this(elements, List.of(), source); }
-        public ArrayValue {
-            elements = List.copyOf(elements);
-            attributes = new ArrayList<>(attributes != null ? attributes : List.of());
+    record BlobValue(String attribute, ValueBase base) implements Value {
+        public BlobValue(Source source, String attribute, int start, int end) {
+            this(attribute, new ValueBase(source, start, end));
         }
-
-        @Override public @NotNull String toString() {
-            if (source != null) return source;
-            return "[" + elements.stream()
-                    .map(Value::toString)
-                    .collect(Collectors.joining(", ")) + "]";
-        }
+        public String attribute() { return attribute; }
+        public String value() { return base.substring();}
+        @Override public @NotNull String toString() { return (attribute != null ? "@" + attribute : "@") + value(); }
+        @Override public int start() { return base.start; }
+        @Override public int end() { return base.end; }
     }
 
-    record TupleValue(List<Value> elements, List<Attribute> attributes, String source) implements Value {
-        public TupleValue(List<Value> elements, String source) { this(elements, List.of(), source); }
-        public TupleValue {
-            if (elements.size() < 2) {
-                throw new IllegalArgumentException("Tuple must have at least 2 elements");
-            }
-            elements = List.copyOf(elements);
-            attributes = new ArrayList<>(attributes != null ? attributes : List.of());
+    // === COMPOSITES ===
+    record ArrayValue(List<Value> elements, List<Attribute> attributes, ValueBase base) implements Value {
+        public ArrayValue(Source source, List<Value> elements, List<Attribute> attributes, int start, int end) {
+            this(List.copyOf(elements), new ArrayList<>(attributes != null ? attributes : List.of()), new ValueBase(source, start, end));
         }
-
-        @Override public @NotNull String toString() {
-            if (source != null) return source;
-            return "(" + elements.stream()
-                    .map(Value::toString)
-                    .collect(Collectors.joining(", ")) + ")";
-        }
+        @Override public @NotNull String toString() { return base.source(); }
+        @Override public int start() { return base.start; }
+        @Override public int end() { return base.end; }
     }
 
-    record ObjectValue(List<Map.Entry<String, Value>> fields, List<Attribute> attributes, String source)
-            implements Value {
-
-        public ObjectValue {
-            fields = List.copyOf(fields);
-            attributes = new ArrayList<>(attributes != null ? attributes : List.of());
-            Objects.requireNonNull(source);
+    record TupleValue(List<Value> elements, List<Attribute> attributes, ValueBase base) implements Value {
+        public TupleValue(Source source, List<Value> elements, List<Attribute> attributes, int start, int end) {
+            this(List.copyOf(elements), new ArrayList<>(attributes != null ? attributes : List.of()), new ValueBase(source, start, end));
+            if (elements.size() < 2) throw new IllegalArgumentException("Tuple must have at least 2 elements");
         }
+        @Override public @NotNull String toString() { return base.source(); }
+        @Override public int start() { return base.start; }
+        @Override public int end() { return base.end; }
+    }
 
-        @Override public @NotNull String toString() { return source; }
+    record ObjectValue(List<Map.Entry<String, Value>> fields, List<Attribute> attributes, ValueBase base) implements Value {
+        public ObjectValue(Source source, List<Map.Entry<String, Value>> fields, List<Attribute> attributes, int start, int end) {
+            this(List.copyOf(fields), new ArrayList<>(attributes != null ? attributes : List.of()), new ValueBase(source, start, end));
+        }
+        @Override public @NotNull String toString() { return base.source(); }
+        @Override public int start() { return base.start; }
+        @Override public int end() { return base.end; }
 
         public Map<String, Value> asMap() {
             LinkedHashMap<String, Value> map = new LinkedHashMap<>();
