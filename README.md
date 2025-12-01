@@ -40,7 +40,7 @@ base_block @[tier=1] := { hardness := 2.0 }
 
 derived_block : base_block @[tier=2] := { hardness := 5.0 }
 ```
-- `base` → parent, `derived` → child (proper software engineering terminology)  
+- `base` → `derived`, not "parent-child" ... learn the terms 
 - Parser records the relationship **flat** – no merging during parse  
 - Resolution and topology construction happen **at runtime** when the consumer asks  
 - Base does **not** need to appear before derived – forward references allowed  
@@ -96,12 +96,13 @@ Full type-safe convenience layer (`AnvilObject`, `AnvilArray`, etc.) coming in *
 | 0.1.7     | Fluent wrapper API (`AnvilObject`, etc.)   | In progress (Aurora-MVP) |
 | 0.2.0     | ASL dialect, multi-file modules, vars block| Planned              |
 
-No more 0.1.5 nonsense. That was yesterday’s bug. Today we ship.
+"0.1.5? That was yesterday’s bug. Today we ship awesome-sauce."
 
 ## License
 MIT © 2025 Badkraft & Contributors
 
-> “Type doesn't matter in AML … so `default_config := null // wrong type!` … so what … you can make it whatever you want … document your template with a comment.”  
+> “Type doesn't matter … so `default_config := null // wrong type!` … so what? You can make it whatever you want … just document your template with a comment.”  
+> 
 > — Badkraft, probably drunk on victory
 
 **Anvil** – because your data deserves better than 1998.
