@@ -70,7 +70,7 @@ player := {
 - Immutable sealed hierarchy of `record` types  
 - Thread-safe, allocation-minimal, GC-friendly
 
-> "0.1.5? That was yesterday’s bug. Today we ship awesome-sauce.
+> "0.1.5? That was yesterday’s bug. Today we ship awesome-sauce.  
 >  ... oh, did we mention AML is minifiable?"
 >
 > ~ Badkraft
