@@ -25,7 +25,7 @@
 ### Current North Star (next 6 months)
 
 > **By June 2026, a user will be able to:**
-> - [✅] Parse a 10 KB AML file in <150 µs with **zero allocations**
+> - ✅ Parse a 10 KB AML file in <150 µs with **zero allocations**
 > - [ ] Receive native `object`/`array`/`tuple` types (mutable or immutable)
 > - [ ] Use `$player_name` and `$"Hello, {name}!"` with graceful degradation
 > - [ ] Inherit from any base, forward or backward referenced
