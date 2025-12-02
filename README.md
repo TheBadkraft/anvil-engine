@@ -135,7 +135,7 @@ if (server.isExperimental()) {
 |-----------|--------------------------------------------|------------------------|
 | 0.1.6     | Current stable alpha – parser + core API   | Released [Alpha-0.1.6] |
 | 0.1.7     | Fluent wrapper API (`AnvilObject`, etc.)   | Release  (this)        |
-| 0.1.8		|                                            | Planned                |
+| 0.1.8		| Absolute Zero-Copy                         | Planned                |
 | 0.2.0     | ASL dialect, multi-file modules, vars block| Planned                |
 
 
