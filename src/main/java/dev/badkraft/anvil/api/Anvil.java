@@ -31,6 +31,7 @@ import dev.badkraft.anvil.utilities.Utils;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.function.Function;
 
 /**
  * The entire public face of ANVL.
@@ -90,6 +91,7 @@ public final class Anvil {
         private final String namespace;
         private final Path sourcePath;
         private IResolver resolver = null;
+        private Function<root, IResolver> resolverFactory = null;
 
         private AnvilBuilder(String source, Dialect dialect, String namespace) {
             this.source = source;
@@ -108,7 +110,11 @@ public final class Anvil {
             this.resolver = resolver;
             return this;
         }
-
+        public AnvilBuilder withResolver(Function<root, IResolver> resolverFactory) {
+            this.resolverFactory = resolverFactory;
+            this.resolver = null;
+            return this;
+        }
         /**
          * Parse and return a fully constructed {@link root}.
          * <p>
@@ -129,10 +135,19 @@ public final class Anvil {
                     .build();
 
             ctx.parse();
-
             root r = buildRoot(ctx);
-            IResolver res = resolver != null ? resolver : Resolver.of(r);
-            r.setResolver(res);
+
+            // Resolve resolver — in the correct order
+            IResolver resolver;
+            if (this.resolver != null) {
+                resolver = this.resolver;
+            } else if (resolverFactory != null) {
+                resolver = resolverFactory.apply(r);
+            } else {
+                resolver = Resolver.of(r);  // default
+            }
+            
+            r.setResolver(resolver);
 
             return r;
         }
