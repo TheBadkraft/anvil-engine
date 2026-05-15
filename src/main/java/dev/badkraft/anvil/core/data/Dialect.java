@@ -48,7 +48,7 @@ public enum Dialect {
     public static Dialect fromFileExtension(String fileExtension) {
         return switch (fileExtension) {
             case "asl" -> ASL;
-            case "aml" -> AML;
+            case "aml", "anvl" -> AML;  // .anvl is the canonical minecraft.ic extension for AML
             // let's return NONE for unsupported extensions, let the caller handle it
             default -> NONE;
         };

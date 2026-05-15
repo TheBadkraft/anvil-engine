@@ -1,8 +1,10 @@
 // anvil-engine/build.gradle.kts
+group = "dev.badkraft"
 version = "0.1.7"
 
 plugins {
     java
+    `java-library`
     application
 }
 
