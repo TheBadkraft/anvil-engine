@@ -1,0 +1,3 @@
+[submodule "anvil.net"]
+	path = anvil.net
+	url = git@github.com:TheBadkraft/anvil.net.git
