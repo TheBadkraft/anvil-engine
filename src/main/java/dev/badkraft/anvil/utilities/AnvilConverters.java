@@ -41,6 +41,7 @@ public final class AnvilConverters {
             case Value.HexValue     h -> new value.LongValue(h.value());
             case Value.DoubleValue  d -> new value.DoubleValue(d.value());
             case Value.StringValue  s -> new value.StringValue(s.content());
+            case Value.BareLiteral  b -> new value.StringValue(b.value());
             case Value.BooleanValue b -> new value.BooleanValue(b.value());
             case Value.NullValue    n -> new value.NullValue();
             case Value.ObjectValue  o -> new object(o);

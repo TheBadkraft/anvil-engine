@@ -32,18 +32,17 @@ public sealed interface value permits object, array, tuple, blob,
                 throw new ArithmeticException("Long value " + value + " does not fit in int");
             return (int) value;
         }
-
         @Override public short asShort() {
             if (value < Short.MIN_VALUE || value > Short.MAX_VALUE)
                 throw new ArithmeticException("Long value " + value + " does not fit in short");
             return (short) value;
         }
-
         @Override public byte asByte() {
             if (value < Byte.MIN_VALUE || value > Byte.MAX_VALUE)
                 throw new ArithmeticException("Long value " + value + " does not fit in byte");
             return (byte) value;
         }
+        @Override public boolean isLong() { return true; }
     }
 
     record DoubleValue(double value) implements value {
@@ -56,43 +55,57 @@ public sealed interface value permits object, array, tuple, blob,
             }
             return f;
         }
+        @Override public boolean isDouble() { return true; }
     }
 
     record StringValue(String value) implements value {
+        /** The stored value is always the string content — quote delimiters are stripped by the parser. */
         @Override public String asString() { return value; }
+        @Override public boolean isString() { return true; }
     }
 
     record BooleanValue(boolean value) implements value {
         @Override public boolean asBoolean() { return value; }
+        @Override public boolean isBoolean() { return true; }
     }
 
-    record NullValue() implements value { }
+    record NullValue() implements value {
+        @Override public boolean isNull() { return true; }
+    }
 
-    // Primitive accessors — throw by default
-    default long     asLong()     { throw new ClassCastException("Not a long"); }
-    default double   asDouble()   {
-        if (this instanceof LongValue(long value)) {
-            return (double) value;
-        }
+    // ── Primitive accessors — throw by default ─────────────────────────────
+    default long     asLong()    { throw new ClassCastException("Not a long"); }
+    default double   asDouble()  {
+        if (this instanceof LongValue(long value)) return (double) value;
         throw new ClassCastException("Not a double");
     }
-    default String   asString()   { throw new ClassCastException("Not a string"); }
-    default boolean  asBoolean()  { throw new ClassCastException("Not a boolean"); }
-    default int     asInt()       { throw new ClassCastException("Not an integer"); }
-    default short   asShort()     { throw new ClassCastException("Not a short"); }
-    default byte    asByte()      { throw new ClassCastException("Not a byte"); }
-    default float   asFloat()     { throw new ClassCastException("Not a float"); }
+    default String   asString()  { throw new ClassCastException("Not a string"); }
+    default boolean  asBoolean() { throw new ClassCastException("Not a boolean"); }
+    default int      asInt()     { throw new ClassCastException("Not an integer"); }
+    default short    asShort()   { throw new ClassCastException("Not a short"); }
+    default byte     asByte()    { throw new ClassCastException("Not a byte"); }
+    default float    asFloat()   { throw new ClassCastException("Not a float"); }
 
-    // Container accessors
-    default object   asObject()   { throw new ClassCastException("Not an object"); }
-    default array    asArray()    { throw new ClassCastException("Not an array"); }
-    default tuple    asTuple()    { throw new ClassCastException("Not a tuple"); }
-    default blob     asBlob()     { throw new ClassCastException("Not a blob"); }
+    // ── Container accessors ────────────────────────────────────────────────
+    default object  asObject()  { throw new ClassCastException("Not an object"); }
+    default array   asArray()   { throw new ClassCastException("Not an array"); }
+    default tuple   asTuple()   { throw new ClassCastException("Not a tuple"); }
+    default blob    asBlob()    { throw new ClassCastException("Not a blob"); }
 
-    // Indexer accessor
+    // ── Indexer accessor ───────────────────────────────────────────────────
     default value get(int i) { throw new UnsupportedOperationException("Not indexable"); }
 
-    // Object base accessors
-    default String base() { throw new ClassCastException("Not an object"); }
+    // ── Object base accessors ──────────────────────────────────────────────
+    default String  base()    { throw new ClassCastException("Not an object"); }
     default boolean hasBase() { return false; }
+
+    // ── Type-check predicates (default false; each permit overrides its own) ──
+    default boolean isString()  { return false; }
+    default boolean isLong()    { return false; }
+    default boolean isDouble()  { return false; }
+    default boolean isBoolean() { return false; }
+    default boolean isNull()    { return false; }
+    default boolean isObject()  { return false; }
+    default boolean isArray()   { return false; }
+    default boolean isTuple()   { return false; }
 }

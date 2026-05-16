@@ -23,7 +23,7 @@ public class FileTest {
 player := {
     name   := "Notch"
     health := 20
-    pos    := (10, 64, -32) 
+    pos    := (10, 64, -32)
     desc   := @md`**bold** and \\`escaped\\``
     realm  := @yaml`
 server:
@@ -42,18 +42,18 @@ server:
             args = Arrays.copyOfRange(args, 1, args.length);
             files = resolveFiles(args);
             if (files.isEmpty()) {
-                System.out.println("No .aml files to process.");
+                System.out.println("No .anvl files to process.");
                 return;
             }
         } else if (args.length > 0 && args[0].equals("--core-tests")) {
             speedTest = true;
-            files.add(TEST_DIR.resolve("assignments.aml"));
-            files.add(TEST_DIR.resolve("arrays.aml"));
-            files.add(TEST_DIR.resolve("objects.aml"));
-            files.add(TEST_DIR.resolve("tuples.aml"));
-            files.add(TEST_DIR.resolve("attributes.aml"));
-            files.add(TEST_DIR.resolve("inherits.aml"));
-            files.add(TEST_DIR.resolve("large_block_lib.aml"));
+            files.add(TEST_DIR.resolve("assignments.anvl"));
+            files.add(TEST_DIR.resolve("arrays.anvl"));
+            files.add(TEST_DIR.resolve("objects.anvl"));
+            files.add(TEST_DIR.resolve("tuples.anvl"));
+            files.add(TEST_DIR.resolve("attributes.anvl"));
+            files.add(TEST_DIR.resolve("inherits.anvl"));
+            files.add(TEST_DIR.resolve("large_block_lib.anvl"));
         } else if (args.length == 1) {
             // single file in args[0] - validate file
             Path srcPath = TEST_DIR.resolve(args[0]);
@@ -63,7 +63,7 @@ server:
         } else {
             files = resolveFiles(args);
             if (files.isEmpty()) {
-                System.out.println("No .aml files to process.");
+                System.out.println("No .anvl files to process.");
                 return;
             }
         }
@@ -113,7 +113,7 @@ server:
 
         try (var stream = Files.list(TEST_DIR)) {
             return stream
-                    .filter(p -> p.toString().endsWith(".aml"))
+                    .filter(p -> p.toString().endsWith(".anvl"))
                     .sorted()
                     .toList();
         }
