@@ -73,4 +73,6 @@ public final class array implements value {
     public array asArray() {
         return this;
     }
+    @Override
+    public boolean isArray() { return true; }
 }

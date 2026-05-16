@@ -14,7 +14,7 @@ public class ContextTest {
     public void initContext() throws IOException {
         Context context = Context.builder()
                 .namespace("testNamespace")
-                .source(Paths.get("src/test/resources/attributes.aml"))
+                .source(Paths.get("src/test/resources/attributes.anvl"))
                 .build();
 
         // Verify that the context is initialized correctly

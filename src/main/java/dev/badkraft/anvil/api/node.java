@@ -83,6 +83,27 @@ public final class node {
             }
         };
     }
+    // ── Field-existence predicate ──────────────────────────────────────────
+    /** Returns {@code true} iff this node's value is an object containing the given field. */
+    public boolean hasField(String field) {
+        return value instanceof object obj && obj.has(field);
+    }
+
+    // ── Typed convenience getters (delegate to object) ─────────────────────
+    public String  getString(String field)  { return requireObject().getString(field); }
+    public long    getLong(String field)    { return requireObject().getLong(field); }
+    public int     getInt(String field)     { return requireObject().getInt(field); }
+    public double  getDouble(String field)  { return requireObject().getDouble(field); }
+    public boolean getBoolean(String field) { return requireObject().getBoolean(field); }
+
+    private object requireObject() {
+        if (!(value instanceof object obj))
+            throw new UnsupportedOperationException(
+                "Typed getters require an object value; this node holds: "
+                + (value == null ? "null" : value.getClass().getSimpleName()));
+        return obj;
+    }
+
     public value get(int index) {
         return switch (value) {
             case array a -> a.get(index);

@@ -76,4 +76,6 @@ public final class tuple implements value {
     public tuple asTuple() {
         return this;
     }
+    @Override
+    public boolean isTuple() { return true; }
 }

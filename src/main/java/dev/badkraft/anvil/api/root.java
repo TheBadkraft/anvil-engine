@@ -75,6 +75,10 @@ public final class root {
     public boolean hasAttribute(String key) {
         return attributes.containsKey(key);
     }
+    /** Returns {@code true} iff a node with the given key exists in this root. */
+    public boolean hasNode(String key) {
+        return nodes.containsKey(key);
+    }
     public object resolveBase(String identifier) {
         return resolver.resolveBase(identifier);
     }

@@ -89,4 +89,62 @@ public final class object implements value {
     public boolean hasAttribute(String key) {
         return attributes.containsKey(key);
     }
+    @Override
+    public boolean isObject() { return true; }
+
+    // ── Typed throwing getters ─────────────────────────────────────────────
+    public String getString(String field) {
+        return requireField(field).asString();
+    }
+    public long getLong(String field) {
+        return requireField(field).asLong();
+    }
+    public int getInt(String field) {
+        return requireField(field).asInt();
+    }
+    public double getDouble(String field) {
+        return requireField(field).asDouble();
+    }
+    public boolean getBoolean(String field) {
+        return requireField(field).asBoolean();
+    }
+    public object getObject(String field) {
+        return requireField(field).asObject();
+    }
+    public array getArray(String field) {
+        return requireField(field).asArray();
+    }
+
+    // ── Default-value overloads — never throw ─────────────────────────────
+    public String getString(String field, String def) {
+        value v = fields.get(field);
+        if (v == null || v instanceof value.NullValue) return def;
+        try { return v.asString(); } catch (ClassCastException e) { return def; }
+    }
+    public long getLong(String field, long def) {
+        value v = fields.get(field);
+        if (v == null || v instanceof value.NullValue) return def;
+        try { return v.asLong(); } catch (ClassCastException e) { return def; }
+    }
+    public int getInt(String field, int def) {
+        value v = fields.get(field);
+        if (v == null || v instanceof value.NullValue) return def;
+        try { return v.asInt(); } catch (ClassCastException | ArithmeticException e) { return def; }
+    }
+    public double getDouble(String field, double def) {
+        value v = fields.get(field);
+        if (v == null || v instanceof value.NullValue) return def;
+        try { return v.asDouble(); } catch (ClassCastException e) { return def; }
+    }
+    public boolean getBoolean(String field, boolean def) {
+        value v = fields.get(field);
+        if (v == null || v instanceof value.NullValue) return def;
+        try { return v.asBoolean(); } catch (ClassCastException e) { return def; }
+    }
+
+    private value requireField(String field) {
+        value v = fields.get(field);
+        if (v == null) throw new java.util.NoSuchElementException("No field: " + field);
+        return v;
+    }
 }

@@ -48,7 +48,7 @@ public class ModSpeedTest {
     private static List<Path> resolveModFiles() throws IOException {
         try (var stream = Files.list(TEST_MODS_DIR)) {
             return stream
-                    .filter(p -> p.toString().endsWith(".aml"))
+                    .filter(p -> p.toString().endsWith(".anvl"))
                     .sorted()
                     .collect(Collectors.toList());
         }
